@@ -1,10 +1,10 @@
 ### Load Libraries & Setup
- #install.packages(c("rotasym", "sphunif", "shapes", "smacof" , "sdetorus", "rgl", "BiocManager"))
-#BiocManager::install("waddR")
+# install.packages(c("rotasym", "sphunif", "shapes", "smacof" ,
+#                    "sdetorus", "rgl", BiocManager"))
+# BiocManager::install("waddR")
 
 ### Setup
 library(rotasym)
-library(polykde)
 library(waddR)
 library(sphunif)
 library(shapes)
@@ -40,33 +40,9 @@ anglesToSphere <- function(theta) {
   return(x)
 }
 
-## Polysphere to rectangular coordinate transformation
-polyAnglesToSphere <- function(theta,dims) {
-  
-  if (!is.matrix(theta)) {
-    theta <- matrix(theta, nrow = 1)
-  }
-  x <- matrix(0, nrow = nrow(theta), ncol = length(dims) + sum(dims))
-  ind_p <- 0
-  ind_r <- 0
-  for (d in dims){
- 
-    input <- as.matrix(theta[,(ind_p+1):(ind_p+d)])
-   # print(as.matrix(theta[,(ind_p+1):(ind_p+d)]))
-    #print(anglesToSphere(as.matrix(theta[,(ind_p+1):(ind_p+d)])))
-    if(nrow(theta) == 1){
-      input <- t(input)
-    }
-    x[,(ind_r+1):(ind_r+d+1)] <- anglesToSphere(input)
-    ind_p <- ind_p + d
-    ind_r <-ind_r+d+1
-  }
-  return(x)
-}
-
 
 ## MDS & PNS for toroidal data (steps 1 and 2 of ST-PCA)
-MDS_PNS <- function(x, init = "cmds", angular = TRUE,dims = rep(1,ncol(x)), col = NULL, method = "Main",
+MDS_PNS <- function(x, init = "cmds", col = NULL, method = "Main",
                     tol = 5e-2) {
   ## Dataset x is provided in radians AND NOT degrees
   n <- nrow(x)
@@ -78,37 +54,46 @@ MDS_PNS <- function(x, init = "cmds", angular = TRUE,dims = rep(1,ncol(x)), col 
   }
 
 
-  # if (d == 2) {
-  #   plot(x,
-  #     pch = 19, col = col, xlim = c(-pi, pi), ylim = c(-pi, pi),
-  #     main = "View of the Data on the Torus"
-  #   )
-  # } else if (d == 3) {
-  #   plot3d(x,
-  #     col = col, xlim = c(-pi, pi), ylim = c(-pi, pi),
-  #     zlim = c(-pi, pi), pch = 19, main = "View of the Data on the Torus"
-  #   )
-  # }
-
-  # r_star <- rstar(100, d, 100) # Compute rstar as r
-  r_star <- length(dims)
-
-  # Compute polysphere distances [s^d_1, s^d_2...]
-  ind_dj <- comp_ind_dj(dims)
-  # convert from hyperspherical to cartesian coordinates if needed.
-  cart_x <- x
-  if(angular){
-    cart_x <- polyAnglesToSphere(x,dims)
+  if (d == 2) {
+    plot(x,
+      pch = 19, col = col, xlim = c(-pi, pi), ylim = c(-pi, pi),
+      main = "View of the Data on the Torus"
+    )
+  } else if (d == 3) {
+    plot3d(x,
+      col = col, xlim = c(-pi, pi), ylim = c(-pi, pi),
+      zlim = c(-pi, pi), pch = 19, main = "View of the Data on the Torus"
+    )
   }
-  #go straight to upper/lower part 
-  dist <- dist_polysph_matrix(cart_x,ind_dj = ind_dj,std=FALSE)
-  d_ij_torus <- dist[upper.tri(dist)]
-  
+
+  # r_star <- rstar(100, d, 100) # Compute rstar as sqrt(d)
+  r_star <- sqrt(d_sphere)
+
+  # Compute toroidal distances
+  ind_tri <- sphunif::upper_tri_ind(n)
+  x_array <- array(dim = c(n, 1, d))
+  x_array[, 1, ] <- x
+  d_ij_circ_each_dim <- sphunif::Psi_mat(
+    data = x_array, use_ind_tri = TRUE,
+    ind_tri = ind_tri
+  ) # distnnce in each dimension
+  d_ij_torus <- sqrt(rowSums(d_ij_circ_each_dim^2))
+  dist <- matrix(0, nrow = n, ncol = n)
+  dist[upper.tri(dist)] <- d_ij_torus # Sets the Upper triangular part of the matrix
+  dist <- dist + t(dist) # adds the lower to make it symmetric
+
   if (init == "cmds") {
     # Initialization by cmdscale
     y <- cmdscale(d = dist, k = d_sphere + 1, eig = FALSE, x.ret = FALSE)
     y <- y / sqrt(rowSums(y^2))
-  } 
+  } else if (init == "uniform") {
+    # uniform Initialization
+    y <- runif(n = n * (d_sphere + 1), min = -pi, max = pi)
+    y <- matrix(y, ncol = d_sphere + 1)
+    y <- y / sqrt(rowSums(y^2))
+  } else {
+    stop("invalid initialization requested")
+  }
   # Main optimization
   if (method == "Main") {
     # Objective function
@@ -116,15 +101,12 @@ MDS_PNS <- function(x, init = "cmds", angular = TRUE,dims = rep(1,ncol(x)), col 
       r_star <- y[n * (d_sphere + 1) + 1] # r_star in optimization
       y <- matrix(y[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
       y <- y / sqrt(rowSums(y^2)) # Normalization of y
-    
       dim(y) <- c(dim(y), 1) # As an array
       # Spherical distance
-      ind_tri <- sphunif::upper_tri_ind(n)
       d_ij_sphere <- sphunif::Psi_mat(
         data = y, use_ind_tri = TRUE,
         ind_tri = ind_tri
       )
-       
       d_ij_sphere <- drop(d_ij_sphere)
       # Stress function (only sum the distinct distances and disregard diagonal)
       return(sum((d_ij_torus - r_star * d_ij_sphere)^2) / length(d_ij_torus))
@@ -149,7 +131,35 @@ MDS_PNS <- function(x, init = "cmds", angular = TRUE,dims = rep(1,ncol(x)), col 
     )
     out <- matrix(res$par[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
     out <- out / sqrt(rowSums(out^2))
-  } 
+  } else if (method == "QMDS_primal") {
+    # Here we solve the problem with
+    rstar <- r_star
+    res <- smacofSphere(dist,
+      ndim = d_sphere + 1, type = "interval",
+      algorithm = "primal", eps = tol
+    )
+    out <- res$conf
+    out <- out / sqrt(rowSums(out^2))
+
+    sdist <- matrix(0, nrow = n, ncol = n)
+    sdist[upper.tri(sdist)] <- res$confdist # Sets the Upper triangular part of the matrix
+    sdist <- sdist + t(sdist) # adds the lower to make it symmetric
+    MDS_info <- list(sphere_dist = sdist, stress = res$stress, rstar = rstar)
+  } else if (method == "QMDS_dual") {
+    rstar <- r_star
+    res <- smacofSphere(dist,
+      ndim = d_sphere + 1, type = "interval",
+      algorithm = "dual", eps = tol
+    )
+    out <- res$conf
+    out <- out / sqrt(rowSums(out^2)) # projection to the sphere
+    sdist <- matrix(0, nrow = n, ncol = n)
+    sdist[upper.tri(sdist)] <- res$confdist # Sets the Upper triangular part of the matrix
+    sdist <- sdist + t(sdist) # adds the lower to make it symmetric
+    MDS_info <- list(sphere_dist = sdist, stress = res$stress, rstar = rstar)
+  } else {
+    stop("invalid method requested")
+  }
   general <- pns(t(out), sphere.type = "seq.test") # PNS with sequential testing for type of fitting sphere
 
   ## Plotting
@@ -172,7 +182,7 @@ MDS_PNS <- function(x, init = "cmds", angular = TRUE,dims = rep(1,ncol(x)), col 
 
   return(list(
     MDS_data = out, MDS_info = MDS_info, pns_data = t(general$resmat),
-    pns_info = general$PNS, pns_var = general$percent, radius = r_star
+    pns_info = general$PNS, pns_var = general$percent
   ))
 }
 
@@ -203,7 +213,7 @@ prediction <- function(x_old, y_old, y_new, r_star, d_sphere) {
     x_new_torus <- (x_new_torus + pi) %% (2 * pi) - pi
     # Calculate torus distances
     x <- rbind(x_old_torus, x_new_torus)
-    # Spherical Distances for full dataset
+    # Toroidal Distances for full dataset
     ind_tri <- sphunif::upper_tri_ind(n)
     x_array <- array(dim = c(n, 1, d - 1))
     x_array[, 1, ] <- x
@@ -274,26 +284,8 @@ torus_distance <- function(a, b) {
   return(dist.torus)
 }
 
-## polysphere distance
-polysphere_distance <- function(a, b, angular=TRUE,dims=rep(1,length(a))) {
-  if (angular) {
-    a <- polyAnglesToSphere(a,dims)
-    b <- polyAnglesToSphere(b,dims)
-  }
-  dist.coord <- rep(NA, length(dims))
-  ind <- 0
-  for (i in seq_along(dims)) {
-    d <- dims[i]
-    a1 <- a[ind+1:ind+d+1]
-    b1 <- b[ind+1:ind+d+1]
-    ind <- ind + d+1
-    dist.coord[i] <- acos(a1%*%b1)
-  }
-  dist.sphere <- sum(dist.coord)
-  return(dist.sphere)
-}
 ## Percent of variance explained by each component
-percent_var_explained <- function(MDSPNS, x, dims = rep(1,ncol(x))) {
+percent_var_explained <- function(MDSPNS, x) {
   d_sphere <- dim(x)[2]
   testsphere <- array(NA, dim = c(
     length(MDSPNS$MDS_data[, 1]), d_sphere + 1,
@@ -342,39 +334,19 @@ percent_var_explained <- function(MDSPNS, x, dims = rep(1,ncol(x))) {
     for (j in seq_along(MDSPNS$MDS_data[, 1])) {
       if (d == 1) {
         distances[j, d] <- torus_distance(x[j, ], testtorus[j, , 1])
-        # distances[j, d] <- polysphere_distance(x[j, ], testtorus[j, , 1],dims,
-        #                                        angular=FALSE)
       } else if (d < d_sphere) {
         distances[j, d] <- torus_distance(
           testtorus[j, , d - 1],
           testtorus[j, , d]
         )
-        # distances[j, d] <- polysphere_distance(
-        #   testtorus[j, , d - 1],
-        #   testtorus[j, , d],
-        #   dims,
-        #   angular=FALSE
-        # )
       } else {
         distances[j, d] <- torus_distance(
           testtorus[j, , d - 1],
           testtorus[1, , d]
         )
-        # distances[j, d] <- polysphere_distance(
-        #   testtorus[j, , d - 1],
-        #   testtorus[1, , d],
-        #   dims,
-        #   angular=FALSE
-        # )
       }
     }
   }
-  # var.total <- sum(distances^2)
-  # var.comp <- rep(NA, length(distances[1, ]))
-  # for (j in seq_along(distances[1, ])) {
-  #   var.comp[j] <- sum(distances[, length(distances[1, ]) - j + 1]^2) /
-  #     var.total
-  # }
   var.total <- sum(distances^2)
   var.comp <- rep(NA, length(distances[1, ]))
   for (j in seq_along(distances[1, ])) {
