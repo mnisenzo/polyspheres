@@ -67,7 +67,7 @@ polyAnglesToSphere <- function(theta, dims) {
 }
 
 
-## MDS & PNS for toroidal data (steps 1 and 2 of ST-PCA)
+## MDS & PNS for polysphere data (steps 1 and 2 of ST-PCA)
 MDS_PNS <-
   function(x,
            init = "cmds",
@@ -75,11 +75,11 @@ MDS_PNS <-
            dims = rep(1, ncol(x)),
            col = NULL,
            method = "Main",
-           tol = 5e-2) {
+           tol = 5e-3) {
     # dimensions of dataset
     n <- nrow(x)
     d <- ncol(x)
-    d_sphere <- d
+    d_sphere <- sum(dims)
 
     if (is.null(col)) {
       col <- rep("black", n)
@@ -164,10 +164,11 @@ MDS_PNS <-
         matrix(res$par[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
       out <- out / sqrt(rowSums(out^2))
     }
+    sink("NUL") 
     general <-
       pns(t(out), sphere.type = "seq.test") # PNS with sequential testing for type of fitting sphere
-
-    ## Plotting
+    sink()
+    # Plotting
     if (d_sphere == 2) {
       plot3d(
         out,
@@ -183,12 +184,12 @@ MDS_PNS <-
         asp = 1
       )
     } else {
-      plot(
-        t(general$resmat),
-        col = col,
-        main = paste("First two Components, r* =", r_star),
-        asp = 1
-      )
+      # plot(
+      #   t(general$resmat),
+      #   col = col,
+      #   main = paste("First two Components, r* =", r_star),
+      #   asp = 1
+      # )
       pairs(
         t(general$resmat[1:3, ]),
         col = col,
@@ -343,7 +344,8 @@ polysphere_distance <-
 ## Percent of variance explained by each component
 percent_var_explained <-
   function(MDSPNS, x, dims = rep(1, ncol(x))) {
-    d_sphere <- dim(x)[2]
+    #d_sphere <- dim(x)[2]
+    d_sphere <- sum(dims)
     testsphere <- array(NA, dim = c(
       length(MDSPNS$MDS_data[, 1]), d_sphere + 1,
       d_sphere
@@ -482,14 +484,13 @@ plot_MDS <- function(x, dims=rep(1,ncol(x)), angular=TRUE){
   n = nrow(x)
   d_sphere = sum(dims)
   simulation_2d <- MDS_PNS(x = x, angular=angular,dims=dims,col = rainbow(n), method = "Main")
-  percent_var_explained(simulation_2d, x = x)
-  
+ # percent_var_explained(simulation_2d, x = x)
   sc <- march_PNS1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
                           PNS = simulation_2d$pns_info
   )
   
   if (sum(dims) < 3){
-    plot(rbind(simulation_2d$pns_data, cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100))),
+    plot(rbind(simulation_2d$pns_data, cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100))),main = paste("First two Components"),
          col = c(rainbow(n), rep("black", 100)), xlim = c(-pi, pi), ylim = c(-pi/2, pi/2), axes = FALSE,
          xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i"
     )
@@ -498,7 +499,7 @@ plot_MDS <- function(x, dims=rep(1,ncol(x)), angular=TRUE){
   } else{
     # compare first two principal components
     plot(rbind(simulation_2d$pns_data[, c(1,2)], cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100))),
-         col = c(rainbow(n), rep("black", 100)), xlim = c(-pi, pi), ylim = c(-pi / 2, pi / 2), axes = FALSE,
+         main = paste("First two Components"), col = c(rainbow(n), rep("black", 100)), xlim = c(-pi, pi), ylim = c(-pi / 2, pi / 2), axes = FALSE,
          xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i"
     )
     points(lin_interp(cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100)), N = 10))
@@ -515,6 +516,6 @@ plot_MDS <- function(x, dims=rep(1,ncol(x)), angular=TRUE){
     )
     sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
   }
-  
+
   
 }
