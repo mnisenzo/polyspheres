@@ -2,7 +2,11 @@
 title: "Polysphere Tests"
 author: "Michael Nisenzon"
 date: "2023-03-14"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -18,7 +22,7 @@ library(Riemann)
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Straight trends on (S^1)^2
 set.seed(5)
-n <- 20
+n <- 60
 samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
 plot(samp_1,
   xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
@@ -27,18 +31,15 @@ plot(samp_1,
 sdetorus::torusAxis()
 clusters <- samp_1
 plot_MDS(clusters, angular = TRUE)
+
+
 ```
 
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Straight trends on (S^1)^3
 set.seed(100)
-n <- 20
+n <- 60
 samp_2 <- r_path_s1r(n = n, r = 3, k = c(0, 1, 2), angles = TRUE)
-pairs(samp_2,
-  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
-  pch = 16
-)
-sdetorus::torusAxis()
 scatterplot3d::scatterplot3d(
   samp_2,
   xlim = c(-pi, pi), ylim = c(-pi, pi), zlim = c(-pi, pi),
@@ -51,8 +52,10 @@ invisible(plot_MDS(clusters, angular = TRUE))
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Small-circle trends on (S^2)^2
 set.seed(20)
-n <- 20
+n <- 60
 samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
 scatterplot3d::scatterplot3d(
   samp_3[, , 1],
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -66,11 +69,13 @@ scatterplot3d::scatterplot3d(
 clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
 plot_MDS(clusters, c(2, 2), angular = TRUE)
 ```
+
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Small-circle trends on (S^2)^3
 set.seed(20)
-n <- 20
+n <- 60
 samp_3 <- r_path_s2r(n = n, r = 3, sigma = 0.05)
+
 scatterplot3d::scatterplot3d(
   samp_3[, , 1],
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -81,6 +86,11 @@ scatterplot3d::scatterplot3d(
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
   xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
 )
+scatterplot3d::scatterplot3d(
+  samp_3[, , 3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
 clusters <- cbind(samp_3[, , 1], samp_3[, , 2], samp_3[, , 3])
 plot_MDS(clusters, c(2, 2, 2), angular = TRUE)
 ```
@@ -88,9 +98,10 @@ plot_MDS(clusters, c(2, 2, 2), angular = TRUE)
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Spiral trends on (S^2)^2
 set.seed(20)
-n <- 20
+n <- 60
 
 samp_4 <- r_path_s2r(n = n, r = 2, c = 3, spiral = TRUE, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
 
 scatterplot3d::scatterplot3d(
   samp_4[, , 1],
@@ -110,22 +121,15 @@ plot_MDS(clusters, c(2, 2), angular = TRUE)
 ## 3/21/2023
 
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
-#' # Small circle trends on (S^2)^2 tims (S^1)^3, almost all variance along first two spheres.
+#' # Small circle trends on (S^2)^2 times (S^1)^3, almost all variance along first two spheres.
 set.seed(20)
-n <- 20
+n <- 60
 samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
 samp_4 <- r_path_s1r(n = n, r = 3, k = rep(0, 3), sigma = 0.03)
+layout(matrix(c(1, 2), 1))
 
-scatterplot3d::scatterplot3d(
-  samp_4[, , 1],
-  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
-  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
-)
-scatterplot3d::scatterplot3d(
-  samp_4[, , 2],
-  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
-  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
-)
+plot( samp_4[, , 1],xlim = c(-1,1), ylim = c(-1,1),col = rainbow(n),pch=16)
+plot( samp_4[, , 2],xlim = c(-1,1), ylim = c(-1,1),col = rainbow(n),pch=16)
 
 clusters <- cbind(samp_3[, , 1], samp_3[, , 2], samp_4[, , 1], samp_4[, , 2], samp_4[, , 3])
 plot_MDS(clusters, c(2, 2, 1, 1,1), angular = TRUE)
@@ -133,16 +137,10 @@ plot_MDS(clusters, c(2, 2, 1, 1,1), angular = TRUE)
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Small circle trends on (S^2)^3, almost all variance along first sphere.
 set.seed(20)
-n <- 20
+n <- 60
 nspheres <- 3
-k<-200
+k<-500
 samp_3 <- r_path_s2r(n=n, r = 1, sigma = 0.05)
-print(samp_3[, , 1])
-scatterplot3d::scatterplot3d(
-  samp_3[, , 1],
-  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
-  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
-)
 clusters <- samp_3[, , 1]
 
 for (i in c(2:nspheres)) {
@@ -150,17 +148,19 @@ for (i in c(2:nspheres)) {
 
 }
 plot_MDS(clusters, rep(2,nspheres), angular = TRUE)
+
+
 ```
 
 
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Small circle trends on (S^2)^4, almost all variance along first two spheres.
 set.seed(20)
-n <- 30
+n <- 60
 nspheres <- 4
 k<- 100
 samp_3 <- r_path_s2r(n=n, r = 2, sigma = 0.05)
-print(samp_3[, , 1])
+layout(matrix(c(1, 2), 1))
 scatterplot3d::scatterplot3d(
   samp_3[, , 1],
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -178,16 +178,18 @@ for (i in c(2:nspheres)) {
 
 }
 plot_MDS(clusters, rep(2,nspheres), angular = TRUE)
+
+
 ```
 
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
 #' # Small circle trends on (S^2)^6, almost all variance along first two spheres.
 set.seed(20)
-n <- 35
+n <- 60
 nspheres <- 6
 k<- 200
 samp_3 <- r_path_s2r(n=n, r = 2, sigma = 0.05)
-print(samp_3[, , 1])
+layout(matrix(c(1, 2), 1))
 scatterplot3d::scatterplot3d(
   samp_3[, , 1],
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -205,6 +207,8 @@ for (i in c(2:nspheres)) {
 
 }
 plot_MDS(clusters, rep(2,nspheres), angular = TRUE)
+
+
 ```
 
 ```{r, echo=TRUE,results='hide',fig.keep='all'}
@@ -214,7 +218,34 @@ n <- 60
 nspheres <- 10
 k<- 500
 samp_3 <- r_path_s2r(n=n, r = 2, sigma = 0.05)
-print(samp_3[, , 1])
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1],samp_3[, , 2])
+
+for (i in c(2:nspheres)) {
+  clusters <- cbind(clusters,rotasym::r_vMF(n,c(rotasym::r_unif_sphere(1,3)),k))
+
+}
+plot_MDS(clusters, rep(2,nspheres), angular = TRUE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^20, almost all variance along first two spheres.
+set.seed(20)
+n <- 100
+nspheres <- 20
+k<- 500
+samp_3 <- r_path_s2r(n=n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
 scatterplot3d::scatterplot3d(
   samp_3[, , 1],
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
