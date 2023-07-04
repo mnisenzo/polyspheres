@@ -1,0 +1,147 @@
+---
+title: "Interpolation Tests"
+author: "Michael Nisenzon"
+date: "2023-03-14"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+```
+
+## 7/4/2023
+
+```{r, echo=TRUE,fig.keep='all'}
+# Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+time <- Sys.time()
+res_int <- plot_MDS_py(clusters, landmark_size = .1,tol=1e-3,landmark_tol=1e-3)
+print(Sys.time()-time)
+
+time <- Sys.time()
+res <- plot_MDS(clusters, tol = 1e-3)
+print(Sys.time()-time)
+
+
+
+```
+
+```{r, echo=TRUE,fig.keep='all'}
+res_mod = rep(0, n)
+for(i in 1:n){
+  diff = res_int[i,1]- res[i,1]
+  if (diff < pi){
+    res_mod[i] = res[i,1]
+  }
+  else {
+    res_mod[i] = pi - res[i,1]
+  }
+}
+plot(res_int[,1], res_mod,xlab="Interpolated MDS-PNS scores",ylab="MDS-PNS scores",  main = paste("Interpolated MDS-PNS scores over MDS-PNS scores, First Component"), col = c(rainbow(n)), xlim = c(-pi, pi), ylim = c(-pi, pi),pch=19) 
+ml = lm(res_int[,1] ~ res_mod) 
+summary(ml)
+
+```
+
+```{r, echo=TRUE,fig.keep='all'}
+# Straight trends on (S^1)^2
+set.seed(7)
+n <- 200
+
+samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+time <- Sys.time()
+res_int6 <- plot_MDS_py(clusters, landmark_size = .1,tol=1e-3,landmark_tol=1e-3)
+print(Sys.time()-time)
+
+
+time <- Sys.time()
+res6 <- plot_MDS(clusters,tol=1e-3)
+print(Sys.time()-time)
+```
+
+```{r, echo=TRUE,fig.keep='all'}
+plot(res_int6[,1], res6[,1],xlab="Interpolated MDS-PNS scores",ylab="MDS-PNS scores",  main = paste("Interpolated MDS-PNS scores over MDS-PNS scores, First Component"), col = c(rainbow(n)), xlim = c(-pi, pi), ylim = c(-pi, pi),pch=19) 
+data <- data.frame(res_int6[,1],res6[,1])
+ml = lm(res_int6[,1] ~ res6[,1]) 
+summary(ml)
+
+hist((res_int6[,1]- res6[,1])^2)
+```
+
+
+```{r, echo=TRUE,fig.keep='all'}
+#' # Small-circle trends on (S^2)^2
+set.seed(20)
+n <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+centers <- get_center(clusters)
+
+scatterplot3d::scatterplot3d(
+  samp_3[centers, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(length(centers)), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[centers, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(length(centers)), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+time = Sys.time()
+pns_data <- plot_MDS(clusters, c(2, 2), angular = FALSE)
+print(Sys.time()-time)
+time = Sys.time()
+pns_data_int <- plot_MDS_py(clusters, c(2, 2), angular = FALSE, landmark_tol=5e-3)
+print(Sys.time()-time)
+
+
+
+```
+
+```{r, echo=TRUE,fig.keep='all'}
+plot(pns_data[,1], pns_data_int[,1],xlab="Interpolated MDS-PNS scores",ylab="MDS-PNS scores",  main = paste("Interpolated MDS-PNS scores over MDS-PNS scores, First Component"), col = c(rainbow(n)), xlim = c(-pi, pi), ylim = c(-pi, pi),pch=19) 
+data <- data.frame(pns_data[,1],pns_data_int[,1])
+ml = lm(pns_data[,1] ~ pns_data_int[,1]) 
+summary(ml)
+
+hist((pns_data_int[,1]- pns_data[,1])^2)
+```
