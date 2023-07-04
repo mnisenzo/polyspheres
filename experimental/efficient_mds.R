@@ -299,7 +299,7 @@ MDS_PNS_py <-
           ind_tri = ind_tri
         )
         sph_mat <- matrix(0,n,n)
-        sph_mat[lower.tri(sph_mat, diag=FALSE)] <- d_ij_sphere
+        #sph_mat[lower.tri(sph_mat, diag=FALSE)] <- d_ij_sphere
         sph_mat[upper.tri(sph_mat, diag=FALSE)] <- d_ij_sphere
         sph_mat <- drop(sph_mat)[1:(n-ls),(n-ls+1):n]
         landmark_polysphere <- dist[not_landmarks,landmarks]
@@ -509,7 +509,7 @@ plot_MDS_py <- function(x, dims=rep(1,ncol(x)), landmark_size=.1, angular=TRUE, 
   n = nrow(x)
   d_sphere = sum(dims)
   simulation_2d <- MDS_PNS_py(x = x, angular=angular,dims=dims,col = rainbow(n),landmark_size = landmark_size,tol = tol, landmark_tol = landmark_tol, method = "Main",pc=pc,python=python)
- # print(simulation_2d$MDS_info)
+  print(simulation_2d$MDS_info)
   # percent_var_explained(simulation_2d, x = x)
   sc <- march_PNS1_shapes_py(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
                           PNS = simulation_2d$pns_info
@@ -543,7 +543,7 @@ plot_MDS_py <- function(x, dims=rep(1,ncol(x)), landmark_size=.1, angular=TRUE, 
     sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
     
   }
-  return(simulation_2d$MDS_info)
+  return(simulation_2d$pns_data)
 }
 
   # run MDS on polysphere, return results
