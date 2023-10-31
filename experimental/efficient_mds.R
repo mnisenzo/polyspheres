@@ -21,11 +21,11 @@ library(usethis)
 library(reticulate)
 source("Script1_Setup_and_Functions.R")
 source("clust_centers.R")
-
+source("nadaraya_watson.R")
 
 ### Functions
 
-## MDS & PNS for polysphere data (steps 1 and 2 of ST-PCA)
+## MDS & PNS for polysphere data (steps 1 and 2 of PCA)
 MDS_PNS_py <-
   function(x,
            init = "cmds",
@@ -37,8 +37,7 @@ MDS_PNS_py <-
            landmark_tol = 5e-4,
            pc = min(3, ncol(x)),
            landmark_size = .1,
-           python = FALSE,
-           landmarks_centroid = FALSE) {
+           gradient = TRUE) {
     # Dimensions of dataset
     n <- nrow(x)
     d <- ncol(x)
@@ -64,19 +63,7 @@ MDS_PNS_py <-
     # go straight to upper/lower part
     dist <- dist_polysph_matrix(cart_x, ind_dj = ind_dj, std = FALSE)
     d_ij_polysphere <- dist[upper.tri(dist)]
-    if (init == "cmds") {
-      # Initialization by cmdscale
-      y <-
-        cmdscale(
-          d = dist,
-          k = d_sphere + 1,
-          eig = FALSE,
-          x.ret = FALSE
-        )
-      y <- y / sqrt(rowSums(y^2))
-      y_initial <- y
-      r_star_initial <- r_star
-    }
+    r_star_initial <- r_star
     stress <- function(y, r_star, n, d_sphere, d_ij_polysphere) {
       r_star <- y[n * (d_sphere + 1) + 1] # r_star in optimization
       y <-
@@ -96,7 +83,6 @@ MDS_PNS_py <-
       # Stress function (only sum the distinct distances and disregard diagonal)
       return(sum((d_ij_polysphere - r_star * d_ij_sphere)^2) / length(d_ij_polysphere))
     }
-    if(landmarks_centroid == TRUE){
     # Either take landmarks as the centroids of clusters of the nearest point to the centroid
     landmarks <- get_centroids(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
     #identify landmarks that are contained in the dataset to avoid redundancy
@@ -107,22 +93,17 @@ MDS_PNS_py <-
     # Project the landmarks onto the sphere
     dist_ls <- dist_polysph_matrix(landmarks, ind_dj = ind_dj, std = FALSE)
     d_ij_polysphere_ls <- dist_ls[upper.tri(dist_ls)]
-    #
     dist_total <- dist_polysph_matrix(rbind(cart_x,landmarks), ind_dj = ind_dj, std = FALSE)
-    d_ij_polysphere_ls2 <- dist_total[upper.tri(dist_total)]
-    # project landmarks onto the hypersphere with the original points
-    
-    y_total <-
+   
+    # Initialization by cmdscale
+    y_ls <-
       cmdscale(
-        d = dist_total,
+        d = dist_ls,
         k = d_sphere + 1,
         eig = FALSE,
         x.ret = FALSE
       )
-    y_total <- y_total / sqrt(rowSums(y_total^2))
-    y_initial <-y_total[1:nrow(cart_x),]
-    y_ls <- y_total[(nrow(cart_x)+1):(nrow(cart_x)+nrow(landmarks)),]
-    
+    y <- matrix(0, nrow(cart_x), d_sphere+1)
     landmark_stress <- function(y, d_sphere, r_star,d_ij_polysphere_ls) {
       r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
       y <-
@@ -143,7 +124,7 @@ MDS_PNS_py <-
     }
     
     # Solves MDS for a single point directly given landmark centroids ls
-    remaining_stress <- function(yp, yn, d_sphere, dims, n, yl, r_star, dist) {
+    projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
       # landmark points defined outside the function
       y1 <-
         matrix(yp, ncol = d_sphere + 1)
@@ -153,8 +134,11 @@ MDS_PNS_py <-
       
       ind_dj <- comp_ind_dj(d_sphere)
       sph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)
+
       # Stress function (only sum the distinct distances and disregard diagonal)
-      return(sum((dist - r_star * sph_mat)^2) / length(dist))
+      out <- sum((dist - r_star * sph_mat)^2) / length(dist)
+      attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x= c(y1), landmarks = yl)
+      return(out)
     }
     # Solve landmark MDS first
     res_landmark <- optim(
@@ -166,119 +150,40 @@ MDS_PNS_py <-
     r_star <- res_landmark$par[ls * (d_sphere + 1) + 1] # r_star in optimization
     yl <-
       matrix(res_landmark$par[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
-    yl <- yl / sqrt(rowSums(yl^2)) # Normalization of y
+    # Normalization of y
+    yl <- yl / sqrt(rowSums(yl^2)) 
+    y[landmark_subset,] <- yl[landmark_subset_direct,]
     
     ind_dj_poly <- comp_ind_dj(dims)
-    # distances between original points and landmarks on the polysphere
-    dist_initial <- dist_polysph_cross(x = cart_x, y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
-    yp <- y_initial[not_landmarks,]
-    
     if(length(not_landmarks) > 0){
+     # yp <- y_initial[not_landmarks,]
+      
+      # Distances between original points and landmarks on the polysphere
       dist_initial <- dist_polysph_cross(x = cart_x[not_landmarks,], y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
-      # # Compare landmarks to non-landmarks
-      # res <- optim(
-      #   fn = remaining_stress,
-      #   par = c(yp),yn=yn, r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial,
-      #   method = "BFGS",
-      #   control = list(reltol = tol)
-      # )
-      # 
-      # y[not_landmarks,] <-
-      #   matrix(res$par, nrow = nrow(yp), ncol = d_sphere + 1)
-      # y[landmark_subset,] <- yl[landmark_subset_direct,]
+      
+      # Initial guess for non landmark points is weighted average of landmarks
+      yp <- weighted_sphere(rows = length(not_landmarks),landmarks=yl, dist_initial=dist_initial, d_sphere=d_sphere)
+      y_initial <- y
+      y_initial[not_landmarks,] <- yp
       res <- matrix(0, nrow = nrow(yp), ncol = d_sphere + 1)
       for(i in 1:length(not_landmarks)){
         # Compare landmarks to non-landmarks
-        resi <- optim(
-          fn = remaining_stress,
-          par = c(yp[i,]),yn=yn, r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,],
-          method = "BFGS",
-          control = list(reltol = tol)
-        )
-        res[i,] <- resi$par
-      }
-      y[not_landmarks,] <- res
-      y[landmark_subset,] <- yl[landmark_subset_direct,]
-    }else{
-      y <- yl
-    }
-    
-    } else {
-      landmarks <- get_center(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
-      not_landmarks <- c(1:nrow(x))
-      not_landmarks <- which(!not_landmarks %in% landmarks)
-      # Main optimization
-      landmark_stress <- function(y, ls, d_sphere, dist, r_star) {
-        r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
-        y <-
-          matrix(y[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
-        y <- y / sqrt(rowSums(y^2)) # Normalization of y
-        
-        dim(y) <- c(dim(y), 1) # As an array
-        # Spherical distance
-        ind_tri <- sphunif::upper_tri_ind(ls)
-        d_ij_sphere <- sphunif::Psi_mat(
-          data = y,
-          use_ind_tri = TRUE,
-          ind_tri = ind_tri
-        )
-        d_ij_sphere <- drop(d_ij_sphere)
-        landmark_polysphere <- dist[upper.tri(dist)]
-        # Stress function (only sum the distinct distances and disregard diagonal)
-        return(sum((landmark_polysphere - r_star * d_ij_sphere)^2) / length(landmark_polysphere))
-      }
-      # Solves MDS for the non-landmark coordinates yn given landmark coordinates yl
-      remaining_stress <- function(yn, yl, d_sphere, n, r_star, dist) {
-        # landmark points defined outside the function
-        yn <-
-          matrix(yn, ncol = d_sphere + 1)
-        y1 <- yn / sqrt(rowSums(yn^2)) # Normalization of y
-        y2 <- y1
-        dim(y2) <- c(dim(y2), 1) # As an array
-
-        ind_dj <- comp_ind_dj(d_sphere)
-        sph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, std = FALSE)
-        landmark_polysphere <- dist
-        # Stress function (only sum the distinct distances and disregard diagonal)
-        return(sum((landmark_polysphere - r_star * sph_mat)^2) / length(landmark_polysphere))
-      }
-      # Solve landmark MDS first
-      res_landmark <- optim(
-        fn = landmark_stress,
-        par = c(y[landmarks, ], r_star), ls = ls, d_sphere = d_sphere, dist = dist[landmarks,landmarks],
-        method = "BFGS",
-        control = list(reltol = landmark_tol)
-      )
-      r_star <- res_landmark$par[ls * (d_sphere + 1) + 1] # r_star in optimization
-      yl <-
-        matrix(res_landmark$par[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
-      yl <- yl / sqrt(rowSums(yl^2))
-      y[landmarks, ] <- yl
-      # If there are non-landmarks left, run the analysis on them
-      if (n - ls > 0) {
-        # res <- optim(
-        #   fn = remaining_stress,
-        #   par = c(y[not_landmarks, ]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, ls = ls, landmarks = landmarks, not_landmarks = not_landmarks, dist = dist,
-        #   method = "BFGS",
-        #   control = list(reltol = tol)
-        # )
-        # yn <-
-        #   matrix(res$par, nrow = n - ls, ncol = d_sphere + 1)
-        # y[not_landmarks, ] <- yn
-        yp <-y_initial[not_landmarks, ]
-        res <- matrix(0, nrow = nrow(yp), ncol = d_sphere + 1)
-        for(i in 1:(n - ls)){
-          # Compare landmarks to non-landmarks
+        if (gradient){
+          resi <-nlm(projection_stress,p=c(yp[i,]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,])
+          res[i,] <- resi$estimate
+        }else{
           resi <- optim(
-            fn = remaining_stress,
-            par = c(yp[i,]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist[not_landmarks[i],landmarks],
+            fn = projection_stress,
+            par = c(yp[i,]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,],
             method = "BFGS",
             control = list(reltol = tol)
           )
           res[i,] <- resi$par
         }
-        y[not_landmarks,] <- res
       }
+      y[not_landmarks,] <- res
+    }else{
+      y <- yl
     }
     y <- y / sqrt(rowSums(y^2))
     # Visualize output
@@ -297,9 +202,8 @@ MDS_PNS_py <-
     out <-
       matrix(y, nrow = n, ncol = d_sphere + 1)
     out <- out / sqrt(rowSums(out^2))
-    
     general <-
-      pns(t(out), sphere.type = "seq.test") # PNS with sequential testing for type of fitting sphere
+      pns(t(out), sphere.type = "seq.test",R=10) # PNS with sequential testing for type of fitting sphere
     #Plotting
     if (ncol(x) < pc && d_sphere > 2) {
       pairs(
@@ -316,7 +220,7 @@ MDS_PNS_py <-
         main = paste("First", pc, "components, r* =", r_star, collapse = " ")
       )
     }
-    
+
     return(
       list(
         MDS_data = out,
@@ -328,8 +232,79 @@ MDS_PNS_py <-
       )
     )
   }
+## Inverting principal curve onto polysphere (step 3 of PCA)
+inverse_MDS <-
+  function(x,
+           mds,
+           init = "cmds",
+           angular = TRUE,
+           dims = rep(1, ncol(x)),
+           col = NULL,
+           method = "Main",
+           tol = 5e-3,
+           landmark_tol = 5e-4,
+           pc = 1,
+           grid_size = 100,
+           plot_pc = TRUE,
+           gradient = TRUE) {
+    # Convert to angular coordinates
+    if(!angular){
+      x <- polySphereToAngles(x,dims)
+    }
+    n <- nrow(x)
+    d_sphere <- sum(dims)
+    ind_dj <- comp_ind_dj(dims)
+    comp_x <- mds$MDS_data
+    rect_x <- polyAnglesToSphere(x,dims)
+    
+    # Evenly spaced points along first principal curve 
+    sc <- march_PNS1_shapes(seq(0, mds$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+                            PNS = mds$pns_info
+    )
+    dist_initial <- dist_polysph_cross(sc, comp_x, ind_dj = comp_ind_dj(d_sphere), std = FALSE)
+    
+    range <- seq(1,n,floor(n/n))
+    r_star <- mds$MDS_info$rstar
+    poly_pc_initial <- weighted_polysphere(rows = nrow(sc), landmarks=rect_x[range,], dist_initial = dist_initial[,range], dims = dims )
+    res <- matrix(0, nrow = nrow(poly_pc_initial), ncol = sum(dims)+length(dims))
+    
+    for(i in 1:grid_size){
+      resi <- optim(
+        fn = poly_projection_stress,
+        par = c(poly_pc_initial[i,]), r_star = r_star, yl = rect_x[range,], dims = dims,d_sphere = d_sphere, n = n, dist = dist_initial[i,range],
+        method = "BFGS",
+        control = list(reltol = tol)
+      )
+      res[i,] <- normalize_poly(resi$par,dims)
+    }
+    poly_pc_angle <- polySphereToAngles(res,dims)
+    if(plot_pc){
+      if(ncol(x) < 3){
+        plot(rbind(x,poly_pc_angle),col=c(rainbow(n), rep("black", grid_size)),main = paste("First two Components"), axes = FALSE,
+             xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i")
+      } else{
+        plot3d(rbind(x[,1:3],poly_pc_angle[,1:3]),col=c(rainbow(n), rep("black", grid_size)),
+               xlab = "", ylab = "", zlab = "", pch = 19)
+      }
+    }
+    return(poly_pc_angle)
+  }
 
-# returns indices of rows in first array that are not contained in second array
+# Plot representation of first principal curve of polysphere data given the spherical projection
+polysphere_PC <- function(x, MDS_PNS,dims){
+  n <- nrow(x)
+  d_sphere <- sum(dims)
+  sphere_x <- MDS_PNS$pns_data
+  
+  print(MDS_PNS$MDS_info)
+  # Evenly spaced points along first principal curve 
+  sc <- march_PNS1_shapes(seq(0, MDS_PNS$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+                          PNS = MDS_PNS$pns_info
+  )
+  
+}
+
+# Returns indices of rows in first array that are not contained in second array
 unique_indices <- function(arr1, arr2){
   inds <- 1:nrow(arr1)
   diff <- intersect(arr1,arr2)
@@ -341,7 +316,7 @@ unique_indices <- function(arr1, arr2){
   return(inds[inds != 0])
 }
 
-# returns indices of rows in first array that are contained in second array
+# Returns indices of rows in first array that are contained in second array
 subset_indices <- function(arr1, arr2){
   inds <- 1:nrow(arr1)
   diff <- intersect(arr1,arr2)
@@ -351,4 +326,97 @@ subset_indices <- function(arr1, arr2){
     }
   }
   return(inds[inds != 0])
+}
+
+# Returns projection of data to sphere based on weighted distance to landmarks
+weighted_sphere <- function(rows, landmarks, dist_initial, d_sphere){
+  results <- matrix(0, rows, d_sphere+1)
+  for (i in 1:rows){
+    # Get normalized weights from distance matrix
+    weights <- 1/dist_initial[i,]
+    weights <- weights/sum(weights)
+    res <- weights %*% landmarks
+    
+    weighted_mean <- res
+    results[i,] <- weighted_mean
+  }
+  results <- results / sqrt(rowSums(results^2))
+  return(results)
+}
+
+# Returns projection of data to polysphere based on weighted distance to landmarks
+weighted_polysphere <- function(rows, landmarks, dist_initial, dims){
+  results <- matrix(0, rows, sum(dims)+length(dims))
+  for (i in 1:rows){
+    # Get normalized weights from distance matrix
+    weights <- 1/dist_initial[i,]
+    weights <- weights/sum(weights)
+    res <- weights %*% landmarks
+    
+    weighted_mean <- res
+    results[i,] <- weighted_mean
+  }
+  results <- normalize_poly(results,dims)
+  return(results)
+}
+
+# Returns weighted sum of squared distances from landmarks on sphere
+sphdist <- function(x1, group, weights, ind_dj) {
+  group_n <- nrow(group)
+  x1 <- x1 / sqrt(sum(x1^2))
+  squared_dists <- weights %*% polykde::dist_polysph(matrix(group, nrow = group_n), t(matrix(x1)), norm_x = TRUE, norm_y = TRUE, ind_dj= ind_dj)**2
+  return(sum(squared_dists))
+}
+
+# Returns Euclidean norm of a vector
+norm_vec <- function(x){ 
+  return(sqrt(sum(x^2)))
+}
+
+
+# Returns gradient for interpolation of a single point from landmarks
+grad_mds<- function(dist, rho, x, landmarks){
+  d = length(x)
+  len_ls <- nrow(landmarks)
+  #grad_total <- matrix(0, d, len_ls)
+  grad_total <- rep(0, d)
+  # Gradient equation
+  for(j in 1:len_ls){
+    y <- landmarks[j,]
+    # Normalized inner product between point and landmark
+    normed_inner <- (x %*% y)/(norm_vec(x)* norm_vec(y))
+    entry <- 2*rho*(dist[j] - rho*acos(normed_inner))/sqrt(1-normed_inner^2)
+    entry <- entry[1]*((diag(d)-outer(x/norm_vec(x),x/norm_vec(x))) %*% y)/(norm_vec(x)*norm_vec(y))
+    grad_total <- grad_total + entry
+  }
+  out <- c(grad_total / len_ls)
+  return(out)
+}
+
+# Returns projection of data to polysphere based on weighted distance to landmarks
+weighted_polysphere <- function(rows, landmarks, dist_initial, dims){
+  results <- matrix(0, rows, sum(dims)+length(dims))
+  for (i in 1:rows){
+    # Get normalized weights from distance matrix
+    weights <- 1/dist_initial[i,]
+    weights <- weights/sum(weights)
+    res <- weights %*% landmarks
+    
+    weighted_mean <- res
+    results[i,] <- normalize_poly(weighted_mean,dims)
+  }
+  return(results)
+}
+# Solves MDS for a single point directly given landmark centroids ls
+poly_projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
+  # landmark points defined outside the function
+  y1 <- matrix(normalize_poly(yp,dims), ncol = length(dims)+sum(dims))
+  
+  ind_dj <- comp_ind_dj(dims)
+  polysph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)
+  
+  # Stress function (only sum the distinct distances and disregard diagonal)
+  out <- sum((r_star*dist - polysph_mat)^2) / length(dist)
+  attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x= c(y1), landmarks = yl)
+  return(out)
 }

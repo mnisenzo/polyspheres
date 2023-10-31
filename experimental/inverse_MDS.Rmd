@@ -1,0 +1,208 @@
+---
+title: "inverse MDS"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-08-01"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(knitr)
+
+library(rgl)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+library(microbenchmark)
+options(rgl.useNULL = TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+knit_hooks$set(webgl = hook_webgl)
+
+library(rgl)
+```
+
+```{r}
+data <- read.table(file = "TorusToyEg.txt", header = FALSE)
+data <- as.matrix(data,ncol=6)
+n = nrow(data)
+plot3d(data[,4:6],col = rainbow(n))
+plot3d(data[,1:3],col = rainbow(n))
+dims = rep(2,2)
+for(i in 1:nrow(data)){
+  data[i,] <- normalize_poly(data[i,],dims)
+}
+
+angular = FALSE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+time <- Sys.time()
+centroid_12 <-plot_MDS_py(x=data,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,gradient=TRUE)
+print(Sys.time()-time)
+
+```
+```{r}
+rgl.close()
+knitr::opts_chunk$set(cache = TRUE)
+res <- invert_MDS(x = polyAnglesToSphere(data,dims), result = centroid_12, grid_size = 100, dims = dims, method = "RW")
+rglwidget()
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test permutation
+# Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE,sigma=.25)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+
+dims = rep(1,nspheres)
+angular = FALSE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+time <- Sys.time()
+centroid_12 <-plot_MDS_py(x=polyAnglesToSphere(clusters,dims),dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,gradient=TRUE)
+print(Sys.time()-time)
+
+
+```
+
+```{r}
+res <- invert_MDS(x = polyAnglesToSphere(clusters,dims), result = centroid_12, grid_size = 100, dims = dims, method = "both")
+```
+
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^2
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.10)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters = samp_3[,,1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+
+time <- Sys.time()
+centroid_12 <-plot_MDS_py(x=clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,gradient= TRUE)
+print(Sys.time()-time)
+
+```
+
+```{r}
+close3d()
+res <- invert_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "both",angular=FALSE)
+rglwidget()
+#plot3d(rbind(clusters[,1:3],polyAnglesToSphere(res,dims)[,1:3]),col=c(rainbow(n), rep("black", grid_size)))
+```
+
+```{r}
+x <- clusters
+mds <- centroid_12
+init = "cmds"
+angular = FALSE
+dims = rep(2,nspheres)
+col = NULL
+method = "Main"
+tol = 5e-3
+landmark_tol = 5e-4
+pc = 1
+grid_size = 100
+plot_pc = TRUE
+gradient = TRUE
+if(!angular){
+    x <- polySphereToAngles(x,dims)
+  }
+  n <- nrow(x)
+  d_sphere <- sum(dims)
+  ind_dj <- comp_ind_dj(dims)
+  comp_x <- mds$MDS_data
+  rect_x <- polyAnglesToSphere(x,dims)
+  
+  # Evenly spaced points along first principal curve 
+  sc <- march_PNS1_shapes(seq(0, mds$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+                          PNS = mds$pns_info
+  )
+  dist_initial <- dist_polysph_cross(sc, comp_x, ind_dj = comp_ind_dj(d_sphere), std = FALSE)
+  
+  range <- seq(1,n,floor(n/n))
+  r_star <- mds$MDS_info$rstar
+  poly_pc_initial <- weighted_polysphere(rows = nrow(sc), landmarks=rect_x[range,], dist_initial = dist_initial[,range], dims = dims )
+  res <- matrix(0, nrow = nrow(poly_pc_initial), ncol = sum(dims)+length(dims))
+  
+  for(i in 1:grid_size){
+    resi <- optim(
+      fn = poly_projection_stress,
+      par = c(poly_pc_initial[i,]), r_star = r_star, yl = rect_x[range,], dims = dims,d_sphere = d_sphere, n = n, dist = dist_initial[i,range],
+      method = "BFGS",
+      control = list(reltol = tol)
+    )
+    res[i,] <- normalize_poly(resi$par,dims)
+  }
+  poly_pc_angle <- polySphereToAngles(res,dims)
+  if(plot_pc){
+    if(ncol(x) < 3){
+      plot(rbind(x,poly_pc_angle),col=c(rainbow(n), rep("black", grid_size)),main = paste("First two Components"), axes = FALSE,
+           xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i")
+    } else{
+      plot3d(rbind(x[,1:3],poly_pc_angle[,1:3]),col=c(rainbow(n), rep("black", grid_size)),
+             xlab = "", ylab = "", zlab = "", pch = 19)
+    }
+  }
+
+```
+```{r}
+    poly_pc_angle <- inverse_MDS(x=clusters, angular = FALSE, dims = dims, grid_size = grid_size, mds=centroid_12, plot_pc = FALSE)
+ plot3d(rbind(x[,1:3],poly_pc_angle[,1:3]),col=c(rainbow(n), rep("black", grid_size)),
+             xlab = "", ylab = "", zlab = "", pch = 19)
+#clear3d()
+# plot3d(rbind(x[,1:3],polySphereToAngles(res,dims)[,1:3]),col=c(rainbow(n), rep("black", grid_size)),
+ #            xlab = "", ylab = "", zlab = "", pch = 19)
+#plot(rbind(clusters[,1:2],res[,1:2]),col=c(rainbow(n), rep("black", grid_size)),
+ #            xlab = "", ylab = "", pch = 19)
+```
+```{r}
+scatterplot3d::scatterplot3d(
+  r_path_s2r(n = n, r = nspheres, sigma = 0.08)[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+```
