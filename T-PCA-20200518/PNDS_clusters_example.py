@@ -133,11 +133,13 @@ def scatter_3D (data, circle, man_2d, labels, ran=[0, 360], filename = None):
 
 """ Full data processing """
 def explore ():
-    files = find_files('cluster*.txt', 'data')
-    colors = ['red'] * 500 + ['#00dd00'] * 500 + ['#00dddd'] * 500 + ['#6600ff'] *500
+    files = find_files('Torus*.txt', 'data')
+    #colors = ['red'] * 500 + ['#00dd00'] * 500 + ['#00dddd'] * 500 + ['#6600ff'] *500
+    colors = ['red']*200
     for f in sorted(files):
         print(f)
-        data = np.array(import_lists(f, as_type='String')).astype(np.float)*DEG
+        data = np.array(import_lists(f, as_type='String')).astype(float)*DEG
+        print(data)
         print(f, data.shape, np.min(data), np.max(data))
         sphere_points, means, half = RESHify_1D(data, False)
 #        sphere_views([[sphere_points, colors, 'o', 5]], [0,0,1], name='protein_' + f[-5] + '_spheres')

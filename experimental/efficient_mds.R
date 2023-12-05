@@ -83,7 +83,7 @@ MDS_PNS_py <-
       # Stress function (only sum the distinct distances and disregard diagonal)
       return(sum((d_ij_polysphere - r_star * d_ij_sphere)^2) / length(d_ij_polysphere))
     }
-    # Either take landmarks as the centroids of clusters of the nearest point to the centroid
+    # Take landmarks as the centroids of clusters
     landmarks <- get_centroids(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
     #identify landmarks that are contained in the dataset to avoid redundancy
     not_landmarks <- unique_indices(cart_x,landmarks)
@@ -203,7 +203,7 @@ MDS_PNS_py <-
       matrix(y, nrow = n, ncol = d_sphere + 1)
     out <- out / sqrt(rowSums(out^2))
     general <-
-      pns(t(out), sphere.type = "seq.test",R=10) # PNS with sequential testing for type of fitting sphere
+      pns(t(out), sphere.type = "seq.test",R=1) # PNS with sequential testing for type of fitting sphere
     #Plotting
     if (ncol(x) < pc && d_sphere > 2) {
       pairs(
@@ -289,6 +289,38 @@ inverse_MDS <-
     }
     return(poly_pc_angle)
   }
+
+# Inverts PNS onto the polysphere using either Nadaraya-Watson or inverse MDS, takes in polysphere with cartesian coordinates
+invert_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size =100, method = "NW", angular= TRUE, plot = TRUE){
+  n <- nrow(x)
+  d_sphere <- sum(dims)
+  sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+                           PNS = result$pns_info
+  )
+  comp_x <- result$MDS_data
+  radius <- result$radius
+  nw_pc <- NULL
+  poly_pc <- NULL
+  if (method == "NW"){
+    nw_pc <- opt_mNW(x=sc1, X=comp_x, Y=x, radius = radius, dims = dims, K = dnorm)
+    #nw_angle <- polySphereToAngles(nw_pc,dims) 
+    out <- nw_pc
+  } else if(method == "both"){
+    nw_pc <- opt_mNW(x=sc1, X=comp_x, Y=x, radius = radius, dims = dims, K = dnorm)
+    #nw_angle <- polySphereToAngles(nw_pc,dims)
+    out <- nw_pc
+    poly_pc_angle <- inverse_MDS(x=x, angular = FALSE, dims = dims, grid_size = grid_size,mds = result, plot_pc = FALSE)
+    poly_pc <- polyAnglesToSphere(poly_pc_angle, dims)
+  } else {
+    poly_pc_angle <- inverse_MDS(x=x, angular = FALSE, dims = dims, grid_size = grid_size, mds=result, plot_pc = FALSE)
+    poly_pc <- polyAnglesToSphere(poly_pc_angle, dims)
+    out <- poly_pc
+  }
+  if(plot){
+    res<-plot_inverse(x, nw_pc, poly_pc, dims = dims, col = col, grid_size =grid_size, angular = angular, method = method)
+  }
+  return(out)
+}
 
 # Plot representation of first principal curve of polysphere data given the spherical projection
 polysphere_PC <- function(x, MDS_PNS,dims){
