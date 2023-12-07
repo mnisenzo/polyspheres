@@ -1,0 +1,1075 @@
+---
+title: "landmark_tests"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-08-01"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+library(microbenchmark)
+```
+
+## 8/1/2023
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 60
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = 1
+# compare centroids to nearest points to centroids
+landmarks <- get_center(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+landmarks_centroids <- get_centroids(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+plot(clusters[landmarks,],
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rep('black',n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Nearest neighbors of centroids, landmark size = 10%", pch = 16
+)
+plot(polySphereToAngles(landmarks_centroids,dims)-pi,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rep('black',n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids of clusters, landmark size = 10%", pch = 16
+)
+
+```
+
+```{r}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(50)
+n <- 200
+nspheres <- 2
+samp_2 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+clusters <- samp_2[, , 1]
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_2[, , i])
+}
+
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+# compare centroids to nearest points to centroids
+landmarks <- get_center(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+landmarks_centroids <- get_centroids(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+scatterplot3d::scatterplot3d(
+  samp_2[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", main="S^2 data, first sphere", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_2[landmarks,, 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "",main="Nearest neighbors of centroids of first sphere", color = rep('black',n*landmark_size), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  landmarks_centroids[,1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "",main="Centroids of first sphere",  color = rep('black',n*landmark_size), pch = 16
+)
+
+scatterplot3d::scatterplot3d(
+  samp_2[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", main="S^2 data, second sphere", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_2[landmarks, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "",main="Nearest neighbors of centroids of second sphere", color = rep('black',n*landmark_size), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  landmarks_centroids[,4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "",main="Centroids of second sphere",  color = rep('black',n*landmark_size), pch = 16
+)
+
+
+```
+
+```{r} 
+# Test Frechet mean on sphere
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(50)
+n <- 60
+nspheres <- 1
+samp_2 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+clusters <- samp_2[,,1]
+
+dims = rep(2,nspheres)
+angular = TRUE
+landmark_size = .1
+
+
+group <- samp_2[1:20,,1]
+cent <- polysphere_center(group, dims)
+
+scatterplot3d::scatterplot3d(
+  rbind(group,cent),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = c(rainbow(20),'black'), pch = 16
+)
+```
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test permutation
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 200
+nspheres <- 3
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE,sigma=.25)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+clusters2 <- clusters[sample(nrow(clusters)),]
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+#res_12 <- compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+time <- Sys.time()
+centroid_12 <-plot_MDS_py(x=clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,gradient=TRUE)
+print(Sys.time()-time)
+
+#time <- Sys.time()
+#normal_landmark <-plot_MDS_py(x=clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+#print(Sys.time()-time)
+time <- Sys.time()
+res<- inverse_MDS(clusters,centroid_12)
+print(Sys.time()-time)
+```
+
+```{r}
+cart_pc <- polyAnglesToSphere(res,dims=rep(1,nspheres))
+nw_size <- 100
+sc1 <- march_PNS1_shapes(seq(0, centroid_12$pns_info$radii[d_sphere] * 2 * pi, l = nw_size),
+                        PNS = centroid_12$pns_info
+)
+comp_x <- centroid_12$MDS_data
+
+nw_pc <- opt_mNW(x=sc1, X=comp_x, Y=polyAnglesToSphere(clusters,dims), dims = rep(1,nspheres), K = dnorm)
+
+nw_angle <- polySphereToAngles(nw_pc,dims)-pi
+poly_pc_angle <- inverse_MDS(clusters,centroid_12, plot_pc = FALSE)
+if(ncol(clusters) < 3){
+  plot(rbind(clusters,nw_angle,poly_pc_angle),col=c(rainbow(n), rep("black", nw_size),rep("grey", 100)),
+             xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i")
+} else{
+  plot3d(rbind(clusters,nw_angle,poly_pc_angle),col=c(rainbow(n), rep("black", nw_size),rep("grey", 100)))
+
+}
+```
+
+```{r}
+nw_pc <- mNW(x=sc1, X=comp_x, Y=polyAnglesToSphere(clusters,dims), dims = rep(1,nspheres), h, K = dnorm)
+score <- cvNW(X = comp_x,Y=polyAnglesToSphere(clusters,dims),dims = rep(1,nspheres),h=1/2)
+opt_nw_pc <- opt_mNW(x=sc1, X=comp_x, Y=polyAnglesToSphere(clusters,dims), dims = rep(1,nspheres), K = dnorm)
+```
+
+```{r}
+x <- clusters
+mds <- centroid_12
+
+#res<- inverse_MDS(x,centroid_12)
+
+n <- nrow(x)
+d_sphere <- sum(dims)
+ind_dj <- comp_ind_dj(dims)
+comp_x <- mds$MDS_data
+rect_x <- polyAnglesToSphere(x,dims)
+#print(mds$MDS_info)
+# Evenly spaced points along first principal curve 
+sc <- march_PNS1_shapes(seq(0, mds$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+                        PNS = mds$pns_info
+)
+dist_initial <- dist_polysph_cross(sc, comp_x, ind_dj = comp_ind_dj(d_sphere), std = FALSE)
+# Returns projection of data to polysphere based on weighted distance to landmarks
+weighted_polysphere <- function(rows, landmarks, dist_initial, dims){
+  results <- matrix(0, rows, sum(dims)+length(dims))
+  for (i in 1:rows){
+    # Get normalized weights from distance matrix
+    weights <- 1/dist_initial[i,]
+    weights <- weights/sum(weights)
+    res <- weights %*% landmarks
+    
+    weighted_mean <- res
+    results[i,] <- normalize_poly(weighted_mean,dims)
+  }
+  return(results)
+}
+# Solves MDS for a single point directly given landmark centroids ls
+poly_projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
+  # landmark points defined outside the function
+  y1 <- matrix(normalize_poly(yp,dims), ncol = length(dims)+sum(dims))
+  
+  ind_dj <- comp_ind_dj(dims)
+  polysph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)
+
+  # Stress function (only sum the distinct distances and disregard diagonal)
+  out <- sum((r_star*dist - polysph_mat)^2) / length(dist)
+  attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x= c(y1), landmarks = yl)
+  return(out)
+}
+```
+
+```{r}
+#plot3d(rbind(comp_x,sc))
+range <- seq(1,n,floor(n/n))
+r_star <- mds$MDS_info$rstar
+poly_pc_initial <- weighted_polysphere(rows = nrow(sc), landmarks=rect_x[range,], dist_initial = dist_initial[,range], dims = dims )
+res <- matrix(0, nrow = nrow(poly_pc_initial), ncol = sum(dims)+length(dims))
+
+for(i in 1:100){
+  resi <- optim(
+              fn = poly_projection_stress,
+              par = c(poly_pc_initial[i,]), r_star = r_star, yl = rect_x[range,], dims = dims,d_sphere = d_sphere, n = n, dist = dist_initial[i,range],
+              method = "BFGS",
+              control = list(reltol = tol)
+            )
+  res[i,] <- normalize_poly(resi$par,dims)
+}
+poly_pc_angle <- polySphereToAngles(res,dims)-pi
+if(ncol(x) < 3){
+  plot(rbind(x,poly_pc_angle),col=c(rainbow(n), rep("black", 100)))
+} else{
+  plot3d(rbind(x,poly_pc_angle),col=c(rainbow(n), rep("black", 100)))
+
+}
+
+
+```
+
+```{r}
+tol = 5e-3
+time <- Sys.time()
+normal <-plot_MDS(x=clusters,dims = dims, angular = angular, tol = tol)
+print(Sys.time()-time)
+```
+
+```{r}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(180)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .3
+
+
+time <- Sys.time()
+res_centroid <- plot_MDS_py(clusters, landmark_size = .1, dims=dims, angular=angular, landmark_tol = 5e-4, tol = 5e-4, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+centroid_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res_subset <- plot_MDS_py(clusters, landmark_size = .1, dims= dims, angular = angular, landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+# profvis({res <- plot_MDS(clusters)})
+subset_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,dims=dims, angular=angular,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+normal_time<- Sys.time() - time
+
+residual_centroids1 <- sum(res_centroid[,1]-res[,1])^2/var(res[,1])
+residual_subset1 <- sum(res_subset[,1]-res[,1])^2/var(res[,1])
+residual_centroids2 <- sum(res_centroid[,2]-res[,2])^2/var(res[,2])
+residual_subset2 <- sum(res_subset[,2]-res[,2])^2/var(res[,2])
+score_residuals <- c(residual_centroids1,residual_subset1,residual_centroids2,residual_subset2)
+times <- c(normal_time, centroid_time,subset_time)
+print(score_residuals)
+print(times)
+
+```
+
+
+```{r}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(180)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .3
+
+
+time <- Sys.time()
+res_centroid <- plot_MDS_py(clusters, landmark_size = .1, dims=dims, angular=angular, landmark_tol = 5e-4, tol = 5e-4, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+centroid_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res_subset <- plot_MDS_py(clusters, landmark_size = .1, dims= dims, angular = angular, landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+# profvis({res <- plot_MDS(clusters)})
+subset_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,dims=dims, angular=angular,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+normal_time<- Sys.time() - time
+
+residual_centroids1 <- sum(res_centroid[,1]-res[,1])^2/var(res[,1])
+residual_subset1 <- sum(res_subset[,1]-res[,1])^2/var(res[,1])
+residual_centroids2 <- sum(res_centroid[,2]-res[,2])^2/var(res[,2])
+residual_subset2 <- sum(res_subset[,2]-res[,2])^2/var(res[,2])
+score_residuals <- c(residual_centroids1,residual_subset1,residual_centroids2,residual_subset2)
+times <- c(normal_time, centroid_time,subset_time)
+print(score_residuals)
+print(times)
+
+```
+```{r}
+set.seed(5)
+n <- 200
+nspheres <- 5
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+knitr::opts_chunk$set(cache = TRUE)
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+results<-compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+print(results)
+```
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test permutation
+# Straight trends on (S^1)^2
+#set.seed(50)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+clusters2 <- clusters[sample(nrow(clusters)),]
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-4
+landmark_tol = 5e-4
+results_s12 <-compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+results_s12_permute <-compare_MDS(clusters2,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+```
+
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^1)^4
+#set.seed(50)
+n <- 200
+nspheres <- 4
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-4
+landmark_tol = 5e-4
+results_s14 <-compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^2
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.25)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters = samp_3[,,1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+#results_s22<-compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+time <- Sys.time()
+centroid_12 <-plot_MDS_py(x=clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,gradient= TRUE)
+print(Sys.time()-time)
+# normal_landmark <-plot_MDS_py(x=clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+#time <- Sys.time()
+#normal <-plot_MDS(x=clusters,dims = dims, angular = angular, tol = tol)
+#print(Sys.time()-time)
+
+```
+```{r}
+x <- clusters
+mds <- centroid_12
+res<- inverse_MDS(x,mds, angular=FALSE,dims=dims)
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^4
+set.seed(5)
+n <- 120
+nspheres <- 4
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_3[, , 1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+tol = 5e-4
+landmark_tol = 5e-4
+results_s24<-compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+```
+
+
+```{r}
+i=13
+explicit <- grad_mds(dist= dist_initial[i,], rho =r_star, x=yp[i, ], landmarks=yl)
+numeric <-grad(remaining_stress, x=yp[i,], d_sphere=d_sphere, dims=dims, n=n, yl=yl, r_star=r_star, dist = dist_initial[i,])
+print(explicit)
+print(numeric)
+```
+```{r}
+# Returns gradient for interpolation of a single point from landmarks
+grad_mds<- function(dist, rho, x, landmarks){
+  d = length(x)
+  len_ls <- nrow(landmarks)
+  #grad_total <- matrix(0, d, len_ls)
+  grad_total <- rep(0, d)
+  # Gradient equation
+  for(j in 1:len_ls){
+    y <- landmarks[j,]
+    # Normalized inner product between point and landmark
+    normed_inner <- (x %*% y)/(norm_vec(x)* norm_vec(y))
+    entry <- 2*rho*(dist[j] - rho*acos(normed_inner))/sqrt(1-normed_inner^2)
+    entry <- entry[1]*((diag(d)-outer(x/norm_vec(x),x/norm_vec(x))) %*% y)/(norm_vec(x)*norm_vec(y))
+    grad_total <- grad_total + entry
+  }
+  out <- c(grad_total / len_ls)
+  return(out)
+}
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test permutation
+# Straight trends on (S^1)^2
+set.seed(10)
+n <- 200
+nspheres <- 5
+samp_2 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+clusters <- samp_2[, , 1]
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_2[, , i])
+}
+# samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+# 
+# plot(samp_1,
+#   xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+#   axes = FALSE, xlab = "", ylab = "", pch = 16
+# )
+# clusters <- samp_1
+
+gradient = TRUE
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-3
+landmark_tol = 5e-4
+
+x <- clusters
+n <- nrow(x)
+    d <- ncol(x)
+    d_sphere <- sum(dims)
+    
+    ls <- n * landmark_size
+    
+    if (is.null(col)) {
+      col <- rep("black", n)
+    }
+    
+    # Initial guess for radius is number of spheres in polysphere
+    r_star <- sqrt(length(dims)) # Compare sum of squares
+    
+    # Compute polysphere indices [s^d_1, s^d_2...]
+    ind_dj <- comp_ind_dj(dims)
+    
+    # convert from hyperspherical to cartesian coordinates if needed
+    cart_x <- x
+    if (angular) {
+      cart_x <- polyAnglesToSphere(x, dims)
+    }
+    # go straight to upper/lower part
+    dist <- dist_polysph_matrix(cart_x, ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere <- dist[upper.tri(dist)]
+    # Initialization by cmdscale
+    y <-
+      cmdscale(
+        d = dist,
+        k = d_sphere + 1,
+        eig = FALSE,
+        x.ret = FALSE
+      )
+    y <- y / sqrt(rowSums(y^2))
+    y_initial <- y
+    r_star_initial <- r_star
+    stress <- function(y, r_star, n, d_sphere, d_ij_polysphere) {
+      r_star <- y[n * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+      
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(n)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      
+      d_ij_sphere <- drop(d_ij_sphere)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((d_ij_polysphere - r_star * d_ij_sphere)^2) / length(d_ij_polysphere))
+    }
+    # Either take landmarks as the centroids of clusters of the nearest point to the centroid
+    landmarks <- get_centroids(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
+    #identify landmarks that are contained in the dataset to avoid redundancy
+    not_landmarks <- unique_indices(cart_x,landmarks)
+    landmark_subset <- subset_indices(cart_x,landmarks)
+    landmark_subset_direct <- subset_indices(landmarks,cart_x)
+    
+    # Project the landmarks onto the sphere
+    dist_ls <- dist_polysph_matrix(landmarks, ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere_ls <- dist_ls[upper.tri(dist_ls)]
+    #
+    dist_total <- dist_polysph_matrix(rbind(cart_x,landmarks), ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere_ls2 <- dist_total[upper.tri(dist_total)]
+    # project landmarks onto the hypersphere with the original points
+    
+    y_total <-
+      cmdscale(
+        d = dist_total,
+        k = d_sphere + 1,
+        eig = FALSE,
+        x.ret = FALSE
+      )
+    y_total <- y_total / sqrt(rowSums(y_total^2))
+    y_initial <-y_total[1:nrow(cart_x),]
+    y_ls <- y_total[(nrow(cart_x)+1):(nrow(cart_x)+nrow(landmarks)),]
+    
+    landmark_stress <- function(y, d_sphere, r_star,d_ij_polysphere_ls) {
+      r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+      
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(ls)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      d_ij_sphere <- drop(d_ij_sphere)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((d_ij_polysphere_ls - r_star * d_ij_sphere)^2) / length(d_ij_polysphere_ls))
+    }
+    
+    # Solves MDS for a single point directly given landmark centroids ls
+    remaining_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
+      # landmark points defined outside the function
+      y1 <-
+        matrix(yp, ncol = d_sphere + 1)
+      y1 <- y1 / sqrt(rowSums(y1^2)) # Normalization of y
+      y2 <- y1
+      dim(y2) <- c(dim(y2), 1) # As an array
+      
+      ind_dj <- comp_ind_dj(d_sphere)
+      sph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)
+      attr(res, "gradient") <-
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      out <- sum((dist - r_star * sph_mat)^2) / length(dist)
+      attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x= c(y1), landmarks = yl)
+      return(out)
+    }
+    # Solve landmark MDS first
+    res_landmark <- optim(
+      fn = landmark_stress,
+      par = c(y_ls, r_star), d_sphere = d_sphere,d_ij_polysphere_ls=d_ij_polysphere_ls,
+      method = "BFGS",
+      control = list(reltol = landmark_tol)
+    )
+    r_star <- res_landmark$par[ls * (d_sphere + 1) + 1] # r_star in optimization
+    yl <-
+      matrix(res_landmark$par[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+    yl <- yl / sqrt(rowSums(yl^2)) # Normalization of y
+    
+    ind_dj_poly <- comp_ind_dj(dims)
+    # distances between original points and landmarks on the polysphere
+    dist_initial <- dist_polysph_cross(x = cart_x, y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+    yp <- y_initial[not_landmarks,]
+   
+    if(length(not_landmarks) > 0){
+      dist_initial <- dist_polysph_cross(x = cart_x[not_landmarks,], y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+      # initial guess for non landmark points is weighted average of landmarks
+      res <- matrix(0, nrow = nrow(yp), ncol = d_sphere + 1)
+      for(i in 1:length(not_landmarks)){
+        # Compare landmarks to non-landmarks
+        if (gradient){
+          resi <-nlm(remaining_stress,p=c(yp[i,]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,])
+          res[i,] <- resi$estimate
+        }else{
+          resi <- optim(
+            fn = remaining_stress,
+            par = c(yp[i,]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,],
+            method = "BFGS",
+            control = list(reltol = tol)
+          )
+          res[i,] <- resi$par
+        }
+      }
+      y[not_landmarks,] <- res
+      y[landmark_subset,] <- yl[landmark_subset_direct,]
+    }else{
+      y <- yl
+    }
+    y <- y / sqrt(rowSums(y^2))
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test permutation
+# Straight trends on (S^1)^2
+set.seed(10)
+n <- 200
+nspheres <- 4
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+clusters2 <- clusters[sample(nrow(clusters)),]
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+tol = 5e-4
+landmark_tol = 5e-4
+
+x <- clusters
+n <- nrow(x)
+    d <- ncol(x)
+    d_sphere <- sum(dims)
+    
+    ls <- n * landmark_size
+    
+    if (is.null(col)) {
+      col <- rep("black", n)
+    }
+    
+    # Initial guess for radius is number of spheres in polysphere
+    r_star <- sqrt(length(dims)) # Compare sum of squares
+    
+    # Compute polysphere indices [s^d_1, s^d_2...]
+    ind_dj <- comp_ind_dj(dims)
+    
+    # convert from hyperspherical to cartesian coordinates if needed
+    cart_x <- x
+    if (angular) {
+      cart_x <- polyAnglesToSphere(x, dims)
+    }
+    # go straight to upper/lower part
+    dist <- dist_polysph_matrix(cart_x, ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere <- dist[upper.tri(dist)]
+    if (init == "cmds") {
+      # Initialization by cmdscale
+      y <-
+        cmdscale(
+          d = dist,
+          k = d_sphere + 1,
+          eig = FALSE,
+          x.ret = FALSE
+        )
+      y <- y / sqrt(rowSums(y^2))
+      y_initial <- y
+      r_star_initial <- r_star
+    }
+    stress <- function(y, r_star, n, d_sphere, d_ij_polysphere) {
+      r_star <- y[n * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+      
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(n)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      
+      d_ij_sphere <- drop(d_ij_sphere)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((d_ij_polysphere - r_star * d_ij_sphere)^2) / length(d_ij_polysphere))
+    }
+    # Either take landmarks as the centroids of clusters of the nearest point to the centroid
+    landmarks <- get_centroids(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
+    #identify landmarks that are contained in the dataset to avoid redundancy
+    not_landmarks <- unique_indices(cart_x,landmarks)
+    landmark_subset <- subset_indices(cart_x,landmarks)
+    landmark_subset_direct <- subset_indices(landmarks,cart_x)
+    
+    # Project the landmarks onto the sphere
+    dist_ls <- dist_polysph_matrix(landmarks, ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere_ls <- dist_ls[upper.tri(dist_ls)]
+    #
+    dist_total <- dist_polysph_matrix(rbind(cart_x,landmarks), ind_dj = ind_dj, std = FALSE)
+    d_ij_polysphere_ls2 <- dist_total[upper.tri(dist_total)]
+    # project landmarks onto the hypersphere with the original points
+    
+    y_total <-
+      cmdscale(
+        d = dist_total,
+        k = d_sphere + 1,
+        eig = FALSE,
+        x.ret = FALSE
+      )
+    y_total <- y_total / sqrt(rowSums(y_total^2))
+    y_initial <-y_total[1:nrow(cart_x),]
+    y_ls <- y_total[(nrow(cart_x)+1):(nrow(cart_x)+nrow(landmarks)),]
+    
+    landmark_stress <- function(y, d_sphere, r_star,d_ij_polysphere_ls) {
+      r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+      
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(ls)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      d_ij_sphere <- drop(d_ij_sphere)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((d_ij_polysphere_ls - r_star * d_ij_sphere)^2) / length(d_ij_polysphere_ls))
+    }
+    
+    # Solves MDS for a single point directly given landmark centroids ls
+    remaining_stress <- function(yp, yn, d_sphere, dims, n, yl, r_star, dist) {
+      # landmark points defined outside the function
+      y1 <-
+        matrix(yp, ncol = d_sphere + 1)
+      y1 <- y1 / sqrt(rowSums(y1^2)) # Normalization of y
+      y2 <- y1
+      dim(y2) <- c(dim(y2), 1) # As an array
+      
+      ind_dj <- comp_ind_dj(d_sphere)
+      sph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((dist - r_star * sph_mat)^2) / length(dist))
+    }
+    # Solve landmark MDS first
+    res_landmark <- optim(
+      fn = landmark_stress,
+      par = c(y_ls, r_star), d_sphere = d_sphere,d_ij_polysphere_ls=d_ij_polysphere_ls,
+      method = "BFGS",
+      control = list(reltol = landmark_tol)
+    )
+    r_star <- res_landmark$par[ls * (d_sphere + 1) + 1] # r_star in optimization
+    yl <-
+      matrix(res_landmark$par[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+    yl <- yl / sqrt(rowSums(yl^2)) # Normalization of y
+    
+    ind_dj_poly <- comp_ind_dj(dims)
+    # distances between original points and landmarks on the polysphere
+    dist_initial <- dist_polysph_cross(x = cart_x, y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+    yp <- y_initial[not_landmarks,]
+    dist_initial <- dist_polysph_cross(x = cart_x[not_landmarks,], y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+    yp<- weighted_sphere(initial = yp, landmarks = yl, dist_initial=dist_initial, d_sphere = d_sphere)
+    yp <- yp / sqrt(rowSums(yp^2))
+    # initial guess for non landmark points is weighted average of landmarks
+    #yp <- weighted_sphere(data = y_initial[not_landmarks,], landmarks = yl, d_sphere = d_sphere)
+    # if(length(not_landmarks) > 0){
+    #   dist_initial <- dist_polysph_cross(x = cart_x[not_landmarks,], y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+    #   # # Compare landmarks to non-landmarks
+    #   res <- matrix(0, nrow = nrow(yp), ncol = d_sphere + 1)
+    #   for(i in 1:length(not_landmarks)){
+    #     # Compare landmarks to non-landmarks
+    #     resi <- optim(
+    #       fn = remaining_stress,
+    #       par = c(yp[i,]),yn=yn, r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i,],
+    #       method = "BFGS",
+    #       control = list(reltol = tol)
+    #     )
+    #     res[i,] <- resi$par
+    #   }
+    #   y[not_landmarks,] <- res
+    #   y[landmark_subset,] <- yl[landmark_subset_direct,]
+    # }else{
+    #   y <- yl
+    # }
+    
+ stress_initial <- stress(
+      y = c(y_initial, r_star_initial),
+      r = r_star_initial, n = n, d_sphere = d_sphere, d_ij_polysphere = d_ij_polysphere
+    )
+    fun <- stress(c(y, r_star), r_star, n = n, d_sphere = d_sphere, d_ij_polysphere = d_ij_polysphere)
+    # r.hat <- res$x[n * (d_sphere + 1) + 1]
+    MDS_info <- list(
+      stress_init = stress_initial,
+      stress_final = fun,
+      rstar = r_star_initial,
+      r.hat = r_star
+    )
+    out <-
+      matrix(y, nrow = n, ncol = d_sphere + 1)
+    out <- out / sqrt(rowSums(out^2))
+    print(MDS_info)
+    general <-
+      pns(t(out), sphere.type = "seq.test") # PNS with sequential testing for type of fitting sphere
+    # Plotting
+      plot3d(
+        out,
+        col = col,
+        xlim = c(-1, 1),
+        ylim = c(-1, 1),
+        zlim = c(-1, 1)
+      )
+      plot(
+        t(general$resmat),
+        col = col,
+        main = paste("First two Components, r* =", r_star),
+        asp = 1
+      )
+
+```
+```{r}
+init <-y_initial[not_landmarks[1],]
+res <- weighted_sphere(matrix(y_initial[not_landmarks[1],],nrow=1), yl, matrix(dist_initial[1,],nrow=1),d_sphere)
+res <- res / sqrt(sum(res^2))
+```
+
+```{r}
+# Returns projection of data to d-sphere based on weighted distance to landmarks
+weighted_sphere <- function(initial, landmarks, dist_initial, d_sphere,tol=5e-3){
+  results <- matrix(0, nrow(initial), ncol(initial))
+  for (i in 1:nrow(initial)){
+    # Get normalized weights from distance matrix
+    weights <- 1/dist_initial[i,]
+    weights <- weights/sum(weights)
+    res <- optim(
+      fn = sphdist,
+      par = c(t(initial[i,])), group = landmarks, weights = weights,ind_dj = comp_ind_dj(d_sphere),
+      method = "BFGS",
+      control = list(reltol = tol)
+    )
+    weighted_mean <- res$par
+    results[i,] <- weighted_mean
+  }
+  return(results)
+}
+# Returns weighted sum of squared distances from landmarks on sphere
+sphdist <- function(x1, group, weights, ind_dj) {
+  group_n <- nrow(group)
+  x1 <- x1 / sqrt(sum(x1^2))
+  squared_dists <- weights %*% polykde::dist_polysph(matrix(group, nrow = group_n), t(matrix(x1)), norm_x = TRUE, norm_y = TRUE, ind_dj= ind_dj)**2
+  return(sum(squared_dists))
+}
+guess <- sphdist(c(0,0,1),yl, rep(1/nrow(yl), nrow(yl)),comp_ind_dj(d_sphere))
+print(yp[1,])
+min <- weighted_sphere(initial=yp,landmarks=yl,dist_initial=dist_initial,d_sphere=d_sphere)
+
+```
+
+```{r}
+# account for centroids that also happen to be in the dataset
+library(dplyr)
+landmarks1 <- get_centroids(x = x, dims = dims, angular = angular, landmark_size = 1)
+df_x <- as.data.frame(cart_x)
+df_l <- as.data.frame(landmarks1)
+not_landmarks <- anti_join(df_x, df_l)
+landmark_subset <- anti_join(df_x,not_landmarks)
+not_landmarks <- data.matrix(not_landmarks)
+landmark_subset <- data.matrix(landmark_subset)
+
+# returns indices of rows in first array that are not contained in second array
+unique_indices <- function(arr1, arr2){
+  inds <- 1:nrow(arr1)
+  diff <- intersect(arr1,arr2)
+  for (i in inds){
+    if(nrow(intersect(arr1[i,],diff))>0){
+      inds[i] = 0
+    }
+  }
+  return(inds[inds != 0])
+}
+
+# returns indices of rows in first array that are contained in second array
+subset_indices <- function(arr1, arr2){
+  inds <- 1:nrow(arr1)
+  diff <- intersect(arr1,arr2)
+  for (i in inds){
+    if(nrow(intersect(arr1[i,],diff))== 0){
+      inds[i] = 0
+    }
+  }
+  return(inds[inds != 0])
+}
+
+
+
+```
+
+```{r}
+
+ # Solves MDS for y given landmark centroids ls
+      remaining_stress <- function(yp, yn, d_sphere, dims, n, yl, r_star, dist) {
+        len_yp <- length(yp)/(d_sphere+1)
+        # landmark points defined outside the function
+        y1 <-
+          matrix(yp[1:(len_yp * (d_sphere + 1))], nrow = len_yp, ncol = d_sphere + 1)
+        y1 <- y1 / sqrt(rowSums(y1^2)) # Normalization of y
+        y2 <- y1
+        dim(y2) <- c(dim(y2), 1) # As an array
+        # Spherical distance
+        ind_tri <- sphunif::upper_tri_ind(len_yp)
+        d_ij_sphere <- sphunif::Psi_mat( # coerce to dist class
+          data = y2,
+          use_ind_tri = TRUE,
+          ind_tri = ind_tri
+        )
+        ind_dj <- comp_ind_dj(d_sphere)
+        sph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = FALSE, norm_y = FALSE, std = FALSE)
+        landmark_polysphere <- dist
+        # Stress function (only sum the distinct distances and disregard diagonal)
+        return(sum((landmark_polysphere - r_star * sph_mat)^2) / length(landmark_polysphere))
+      }
+ dist_initial <- dist_polysph_cross(x = cart_x[not_landmarks,], y = landmarks, norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj_poly, std = FALSE)
+#res1<- remaining_stress(yp=yp,yn=yn, r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial)
+
+
+  res <- optim(
+        fn = remaining_stress,
+        par = c(yp),yn=yn, r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial,
+        method = "BFGS",
+        control = list(reltol = tol)
+      )
+
+      y[not_landmarks,] <-
+        matrix(res$par, nrow = nrow(yp), ncol = d_sphere + 1)
+      
+```

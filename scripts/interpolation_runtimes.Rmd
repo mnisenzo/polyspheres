@@ -1,0 +1,151 @@
+---
+title: "interpolation runtimes"
+output: html_document
+date: "2023-08-01"
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+
+```
+
+
+```{r}
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 40
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+
+
+time <- Sys.time()
+res_int <- plot_MDS_py(clusters, landmark_size = .3, landmark_tol = 5e-4, tol = 5e-4, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+print(Sys.time() - time)
+
+time <- Sys.time()
+#res_int <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+ #profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)})
+print(Sys.time() - time)
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,tol=5e-4)
+ #profvis({res <- plot_MDS(clusters,tol=5e-3)})
+print(Sys.time() - time)
+```
+```{r}
+
+set.seed(5)
+n <- 60
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_3[, , 1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+
+
+time <- Sys.time()
+res_centroid <- plot_MDS_py(clusters, landmark_size = .1, dims=dims, angular=angular, landmark_tol = 5e-4, tol = 5e-4, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+centroid_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res_subset <- plot_MDS_py(clusters, landmark_size = .1, dims= dims, angular = angular, landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+# profvis({res <- plot_MDS(clusters)})
+subset_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,dims=dims, angular=angular,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+normal_time<- Sys.time() - time
+
+residual_centroids1 <- sum((res_centroid[,1]-res[,1])^2)/var(res[,1])
+residual_subset1 <- sum((res_subset[,1]-res[,1])^2)/var(res[,1])
+residual_centroids2 <- sum((res_centroid[,2]-res[,2])^2)/var(res[,2])
+residual_subset2 <- sum((res_subset[,2]-res[,2])^2)/var(res[,2])
+score_residuals <- c(residual_centroids1,residual_subset1,residual_centroids2,residual_subset2)
+times <- c(normal_time, centroid_time,subset_time)
+print(score_residuals)
+print(times)
+```
+
+```{r}
+# Straight trends on (S^2)^4
+set.seed(5)
+n <- 300
+nspheres <- 4
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_3[, , 1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+
+time <- Sys.time()
+#res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol = 5e-4, tol = 5e-4, angular=FALSE, dims = dims, landmarks_centroid = TRUE)
+# profvis({profvis({res <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-5,tol=5e-4, angular=FALSE,dims=dims, landmarks_centroid = FALSE)})})
+print(Sys.time() - time)
+
+time <- Sys.time()
+#res <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-5,tol=5e-4, angular=FALSE,dims=dims, landmarks_centroid = FALSE)
+profvis({res <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-5,tol=5e-4, angular=FALSE,dims=dims, landmarks_centroid = FALSE)})
+print(Sys.time() - time)
+
+
+time <- Sys.time()
+#res <- plot_MDS(clusters,tol=5e-4,dims=dims,angular=FALSE)
+profvis({res <- plot_MDS(clusters,tol=5e-3)})
+print(Sys.time() - time)
+```

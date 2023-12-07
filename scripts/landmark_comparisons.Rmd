@@ -1,0 +1,191 @@
+---
+title: "landmark_comparisons"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-08-01"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+library(microbenchmark)
+
+```
+
+## 9/12/2023
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 60
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = 1
+# compare centroids to nearest points to centroids
+landmarks <- get_center(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+landmarks_centroids <- get_centroids(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+plot(clusters[landmarks,],
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rep('black',n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Nearest neighbors of centroids, landmark size = 10%", pch = 16
+)
+plot(polySphereToAngles(landmarks_centroids,dims)-pi,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rep('black',n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids of clusters, landmark size = 10%", pch = 16
+)
+
+```
+
+```{r}
+
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+res_avg_s12_60<- c(0.009681522, 0.010146122, 0.003693450, 1.676072, 1.887549,  3.990593,  1.924807,  1.918717)
+res_avg_s12_120<-c(0.009221720, 0.009631406, 0.004712213, 2.053848, 2.068060, 13.225093,  9.920735, 15.064987)
+res_avg_s12_200<-c(0.006642556, 0.006297797, 0.005718498, 1.510878, 1.550600, 33.004800, 35.020000, 49.593378)
+res_s12_sizes <- rbind(res_avg_s12_60,res_avg_s12_120,res_avg_s12_200)
+
+#names <- c("function value-centroid","function value-subset", "function value-original", "R^2 value- centroid","R^2 value- subset","runtime-centroid","runtime-subset", "runtime-original"  )
+
+print(res_s12_sizes)
+```
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+# results for uncoupled optimization in interpolation step
+names <- c("function value-centroid","function value-subset", "function value-original", "R^2 value- centroid","R^2 value- subset","runtime-centroid","runtime-subset", "runtime-original"  )
+result_25 <- matrix(c(0.010484716, 0.009437350, 0.004000891, 2.013166, 1.827010,  0.9189608, 0.964662,   3.088312,
+0.008250714, 0.008895760, 0.003794525, 1.845457, 2.107126,  3.7281201, 1.035967,  17.045301,
+0.005946828, 0.006387525, 0.006092731, 1.691252, 1.800907,  1.2431610, 5.006406,  46.383987,
+0.005848737, 0.006654098, 0.005742222, 1.288962, 1.705839, 9.9582412, 9.334837, 183.261295),nrow=8)
+result_25_df<- as.data.frame(t(result_25))
+colnames(result_25_df) = names
+rownames(result_25_df) <- c("n=60","n=120","n=200","n=300")
+print(result_25_df, rownames=TRUE)
+
+
+```
+
+```{r, fig.show = 'hide'}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 60
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+x <- clusters
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+trials=20
+
+res_avg_s12_n <- microbenchmark(run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = TRUE), run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = FALSE), times = trials)
+print(res_avg_s12_n)
+
+```
+
+```{r, fig.show = 'hide'}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 120
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+x <- clusters
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+trials=20
+
+res_avg_s12_n <- microbenchmark(run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = TRUE), run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = FALSE), times = trials)
+print(res_avg_s12_n)
+
+```
+
+```{r, fig.show = 'hide'}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+x <- clusters
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+trials=4
+
+res_avg_s12_n <- microbenchmark(run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = TRUE), run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = FALSE), times = trials)
+print(res_avg_s12_n)
+
+```
+
+```{r, fig.show = 'hide'}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 300
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+x <- clusters
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+trials=20
+
+res_avg_s12_n <- microbenchmark(run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = TRUE), run_MDS_py(x, landmark_size = landmark_size, dims=dims, angular=angular,plot=FALSE,gradient = FALSE), times = trials)
+print(res_avg_s12_n)
+
+```

@@ -1,0 +1,305 @@
+---
+title: "clusters"
+output: html_document
+date: "2023-08-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+library(tidyverse)
+knitr::knit_hooks$set(webgl = hook_webgl)
+
+
+
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.10)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters = samp_3[,,1]
+dims = rep(2,nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+
+dims = rep(2,nspheres)
+angular = FALSE
+landmark_size = .1
+ls <- n*landmark_size
+# find centroids
+landmarks_centroids <- get_centroids(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+
+clear3d()
+
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)  
+plot3d(clusters[,1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1),zlim = c(-1, 1), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids and nearest neighbors, landmark size = 10%", pch = 19)
+points3d(landmarks_centroids[,1:3], pch=10)
+
+
+plot3d(clusters[,4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1),zlim = c(-1, 1), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids and nearest neighbors, landmark size = 10%", pch = 19)
+points3d(landmarks_centroids[,1:3], pch=16)
+
+rglwidget()
+# points(polySphereToAngles(l_centroid,dims)-pi, pch=16)
+# legend(1, 3, legend=c("(S^1)^2", "Centroids", "Centers"),
+#        pch = c(19,16,10), col = c('red','black','red'), lty=1:3, cex=0.8)
+# for(i in 1:ls){
+#   p1 <- polySphereToAngles(l_center[i,],dims)-pi
+#   p2 <- polySphereToAngles(l_centroid[i,],dims)-pi
+#   segments(x0 = p1[1],y0= p1[2],x1=p2[1],y1=p2[2],col='black')
+# }
+
+
+```
+```{r}
+close3d()
+plot3d(clusters,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids and nearest neighbors, landmark size = 10%", pch = 19)
+points3d(l_center, pch=10)
+points3d(l_centroid, pch=16)
+legend3d(1, 3, legend=c("(S^1)^2", "Centroids", "Centers"),
+       pch = c(19,16,10), col = c('red','black','red'), lty=1:3, cex=0.8)
+for(i in 1:ls){
+  p1 <- l_center
+  p2 <- l_centroid
+  segments3d(x0 = p1[1],y0= p1[2],xx1=p2[1],y1=p2[2],col='black')
+}
+```
+## 8/22/2023
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+ls <- n*landmark_size
+# compare centroids to nearest points to centroids
+landmarks <- get_center(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+landmarks_centroids <- get_centroids(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+
+
+results <- compare_centers(x = clusters, dims = dims, angular = angular, landmark_size = landmark_size)
+l_center <- results[1:ls,]
+l_centroid <- results[(ls+1):(2*ls),]
+plot(clusters,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2", main="Centroids and nearest neighbors, landmark size = 10%", pch = 19)
+points(polySphereToAngles(l_center,dims)-pi, pch=10)
+points(polySphereToAngles(l_centroid,dims)-pi, pch=16)
+legend(1, 3, legend=c("(S^1)^2", "Centroids", "Centers"),
+       pch = c(19,16,10), col = c('red','black','red'), lty=1:3, cex=0.8)
+for(i in 1:ls){
+  p1 <- polySphereToAngles(l_center[i,],dims)-pi
+  p2 <- polySphereToAngles(l_centroid[i,],dims)-pi
+  segments(x0 = p1[1],y0= p1[2],x1=p2[1],y1=p2[2],col='black')
+}
+
+
+```
+```{r, test-rgl, webgl=TRUE}
+knitr::opts_chunk$set(cache = TRUE)
+sph <- polyAnglesToSphere(clusters,c(2))
+sph <- sph / sqrt(rowSums(sph^2))
+plot3d(sph,
+      col = c(rainbow(n), rep("black", 100)),
+      xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
+      xlab = "", ylab = "", zlab = "", pch = 19
+    )
+    sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
+
+```
+
+```{r}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 100
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .2
+
+
+time <- Sys.time()
+res_centroid <- plot_MDS_py(clusters, landmark_size = landmark_size, dims=dims, angular=angular, landmark_tol = 5e-4, tol = 5e-4)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+centroid_time <- Sys.time() - time
+
+time <- Sys.time()
+res <- plot_MDS(clusters,dims=dims, angular=angular,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+normal_time<- Sys.time() - time
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+#test full landmark
+# Straight trends on (S^1)^2
+set.seed(50)
+n <- 60
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+clusters2 <- clusters[sample(nrow(clusters)),]
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = 1
+tol = 5e-4
+landmark_tol = 5e-4
+res_12 <- compare_MDS(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol)
+
+
+```
+```{r, webgl=TRUE}
+knitr::opts_chunk$set(cache = TRUE)
+
+res_subset <- plot_MDS_py(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,landmarks_centroid = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
+mode <-seq(from = -pi, to = pi, by = 2 * pi / 99)
+plot3d(rbind(polyAnglesToSphere(res_subset,c(2)),cbind(sin(mode),cos(mode), rep(0, 100))),col = c(rainbow(n), rep("black", 100)),
+      xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
+      xlab = "", ylab = "", zlab = "", pch = 19
+    )
+    sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
+
+```
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+set.seed(50)
+n <- 200
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .2
+tol = 5e-4
+landmark_tol = 5e-4
+
+res_subset <- plot_MDS_py(clusters,dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol,landmarks_centroid = FALSE)
+mode <-seq(from = -pi, to = pi, by = 2 * pi / 99)
+plot3d(rbind(polyAnglesToSphere(res_subset,c(2)),cbind(sin(mode),cos(mode), rep(0, 100))),col = c(rainbow(n), rep("black", 100)),
+      xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
+      xlab = "", ylab = "", zlab = "", pch = 19
+    )
+    sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
+  res_subset <- plot_MDS(clusters,dims = dims, angular = angular, tol = tol)
+  plot3d(rbind(polyAnglesToSphere(res_subset,c(2)),cbind(sin(mode),cos(mode), rep(0, 100))),col = c(rainbow(n), rep("black", 100)),
+      xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
+      xlab = "", ylab = "", zlab = "", pch = 19
+    )
+    sphere1.f(x0 = 0, y0 = 0, z0 = 0, r = 1, col = "azure2", lit = FALSE, alpha = 0.5)
+
+```
+
+
+```{r}
+# Straight trends on (S^1)^2
+knitr::opts_chunk$set(cache = TRUE)
+
+set.seed(10)
+n <- 100
+nspheres <- 2
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = TRUE, xlab = "Angle 1", ylab = "Angle 2",main="(S^1)^2 Data", pch = 16
+)
+clusters <- samp_1
+
+dims = rep(1,nspheres)
+angular = TRUE
+landmark_size = .1
+
+time <- Sys.time()
+res_centroid <- plot_MDS_py(clusters, landmark_size = .5, dims=dims, angular=angular, landmark_tol = 5e-4, tol = 5e-4, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+centroid_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res_subset <- plot_MDS_py(clusters, landmark_size = .1, dims= dims, angular = angular, landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+# profvis({res <- plot_MDS(clusters)})
+subset_time <- Sys.time() - time
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,dims=dims, angular=angular,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+normal_time<- Sys.time() - time
+
+residual_centroids1 <- sum(res_centroid[,1]-res[,1])^2/var(res[,1])
+residual_subset1 <- sum(res_subset[,1]-res[,1])^2/var(res[,1])
+residual_centroids2 <- sum(res_centroid[,2]-res[,2])^2/var(res[,2])
+residual_subset2 <- sum(res_subset[,2]-res[,2])^2/var(res[,2])
+score_residuals <- c(residual_centroids1,residual_subset1,residual_centroids2,residual_subset2)
+times <- c(normal_time, centroid_time,subset_time)
+print(score_residuals)
+print(times)
+
+```

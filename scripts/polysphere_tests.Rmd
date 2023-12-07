@@ -1,0 +1,781 @@
+---
+title: "Polysphere Tests"
+author: "Michael Nisenzon"
+date: "2023-03-14"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("efficient_mds.R")
+source("Script1_Setup_and_Functions.R")
+source("run_MDS.R")
+
+source("samplers.R")
+library(profvis)
+library(Riemann)
+library(bigmds)
+library(reticulate)
+
+```
+
+## 3/14/2023
+
+```{r}
+# Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+nspheres <- 4
+samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+
+time <- Sys.time()
+res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol = 5e-4, tol = 5e-6, landmarks_centroid = TRUE)
+# profvis({res_int <- plot_MDS_py(clusters, landmark_size = .1, landmark_tol=5e-6)})
+print(Sys.time() - time)
+
+time <- Sys.time()
+ res_int <- plot_MDS_py(clusters, landmark_size = .1,landmark_tol=5e-4,tol=5e-4, landmarks_centroid = FALSE)
+# res <- plot_MDS(clusters,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+print(Sys.time() - time)
+
+
+time <- Sys.time()
+res <- plot_MDS(clusters,tol=5e-4)
+# profvis({res <- plot_MDS(clusters)})
+print(Sys.time() - time)
+```
+
+```{r}
+plot(res_int[, 1], res[, 1], xlab = "Interpolated MDS-PNS scores", ylab = "MDS-PNS scores", main = paste("Interpolated MDS-PNS scores over MDS-PNS scores"), col = c(rainbow(n)), xlim = c(-pi, pi), ylim = c(-pi, pi), pch = 19)
+
+# 200 points, compare interpolated scores to original
+# (S1)^2
+landmark_sizes <- c(.05, .1, .15, .2, .25, .3, .4, .5, 1)
+cor_landmarks <- c(.999, .999, .999, 1, .999, 1, 1, 1, 1)
+correlationsS12 <- rbind(landmark_sizes, cor_landmarks)
+
+# (S2)^2
+landmark_sizes <- c(.05, .1, .15, .2, .25, .3, .4, .5, 1)
+cor_landmarks <- c(.998, .999, .999, 1, 1, 1, 1, 1, 1)
+correlationsS22 <- rbind(landmark_sizes, cor_landmarks)
+
+# (S2)^5
+landmark_sizes <- c(.05, .1, .15, .2, .25, .3, .4, .5, 1)
+cor_landmarks <- c(.990, .992, .994, .998, 1, 1, 1, 1, 1)
+correlationsS25 <- rbind(landmark_sizes, cor_landmarks)
+
+# (S2)^10
+landmark_sizes <- c(.05, .1, .15, .2, .25, .3, .4, .5, 1)
+cor_landmarks <- c(.988, .995, .995, .997, .998, 1, 1, 1, 1)
+correlationsS2_10 <- rbind(landmark_sizes, cor_landmarks)
+```
+
+```{r}
+# Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+clusters <- samp_1
+```
+
+
+```{r}
+# Straight trends on (S^1)^2
+tab4 <- test_landmarks(n = 200, lsizes = c(.05, .1, .15, .2, .25, .5, 1), nspheres = 4, trials = 1)
+# tab4 <- test_landmarks(n=100,lsizes = c(.2,.25),nspheres = 3,trials = 2)
+```
+
+```{r, include=FALSE}
+# run trials with different landmark sizes on a polysphere with n samples
+test_landmarks <- function(n, lsizes, nspheres, trials) {
+  times <- rep(0, length(lsizes))
+  fun_vals <- rep(0, length(lsizes))
+
+  for (i in 1:length(lsizes)) {
+    ltime <- 0
+    lval <- 0
+    for (j in 1:trials) {
+      k <- 0
+      samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+      layout(matrix(c(1, 2), 1))
+      clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+      if (nspheres > 2) {
+        for (l in c(3:nspheres)) {
+          clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+        }
+      }
+      time <- Sys.time()
+      result <- run_MDS_py(clusters, landmark_size = lsizes[i], tol = 5e-3, landmark_tol = 5e-5)
+      lval <- (lval + result$stress_final)
+      ltime <- (ltime + Sys.time() - time)
+    }
+    fun_vals[i] <- lval / trials
+    times[i] <- ltime / trials
+  }
+  print(fun_vals)
+  print(times)
+  tab <- t(matrix(c(lsizes, fun_vals, times), nrow = 3, byrow = TRUE))
+  tab <- as.table(tab)
+  colnames(tab) <- c("Landmark size", "Function value", "Runtime")
+
+  return(tab)
+}
+```
+
+```{r}
+times <- rep(0, 5)
+fun_vals <- rep(0, 5)
+for (i in 1:5) {
+  ltime <- 0
+  lval <- 0
+  for (j in 1:3) {
+    time <- Sys.time()
+    lval <- (lval + j)
+    ltime <- (ltime + Sys.time() - time) * 1e+2
+    print(c(lval, ltime))
+  }
+  print(c(lval, ltime))
+  fun_vals[i] <- lval / 3
+  times[i] <- ltime / 3
+}
+print(times)
+print(fun_vals)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+sdetorus::torusAxis()
+clusters <- samp_1
+# get_center(clusters)
+time <- Sys.time()
+profvis({
+  x <- clusters
+  init <- "cmds"
+  angular <- TRUE
+  dims <- rep(1, ncol(x))
+  col <- NULL
+  method <- "Main"
+  tol <- 5e-3
+  pc <- min(3, ncol(x))
+  python <- FALSE
+  landmark_size <- 1
+  # dimensions of dataset
+  n <- nrow(x)
+  d <- ncol(x)
+  d_sphere <- sum(dims)
+
+  ls <- n * landmark_size
+
+  if (is.null(col)) {
+    col <- rep("black", n)
+  }
+
+  # initial guess for radius is number of spheres in polysphere
+  r_star <- sqrt(length(dims)) # compare sum of squares
+
+  # Compute polysphere indices [s^d_1, s^d_2...]
+  ind_dj <- comp_ind_dj(dims)
+
+  # convert from hyperspherical to cartesian coordinates if needed.
+  cart_x <- x
+  if (angular) {
+    cart_x <- polyAnglesToSphere(x, dims)
+  }
+  # go straight to upper/lower part
+  dist <- dist_polysph_matrix(cart_x, ind_dj = ind_dj, std = FALSE)
+  d_ij_polysphere <- dist[upper.tri(dist)]
+  landmarks <- get_center(x = x, dims = dims, angular = angular, landmark_size = landmark_size)
+  not_landmarks <- c(1:nrow(x))
+  not_landmarks <- which(!not_landmarks %in% landmarks)
+  if (init == "cmds") {
+    # Initialization by cmdscale
+    y <-
+      cmdscale(
+        d = dist,
+        k = d_sphere + 1,
+        eig = FALSE,
+        x.ret = FALSE
+      )
+    y <- y / sqrt(rowSums(y^2))
+    y_initial <- y
+    r_star_initial <- r_star
+  }
+  # Main optimization
+  if (method == "Main") {
+    # Objective function
+    stress <- function(y, r_star) {
+      r_star <- y[n * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(n)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+
+      d_ij_sphere <- drop(d_ij_sphere)
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((d_ij_polysphere - r_star * d_ij_sphere)^2) / length(d_ij_polysphere))
+    }
+
+    landmark_stress <- function(y, r_star) {
+      r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
+      y <-
+        matrix(y[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(ls)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      d_ij_sphere <- drop(d_ij_sphere)
+      dist_sub <- dist[landmarks, landmarks]
+      landmark_polysphere <- dist_sub[upper.tri(dist_sub)]
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((landmark_polysphere - r_star * d_ij_sphere)^2) / length(landmark_polysphere))
+    }
+    # Solves MDS for the non-landmark coordinates yn given landmark coordinates yl
+    remaining_stress <- function(yn) {
+      # landmark points defined outside the function
+      yn <-
+        matrix(yn[1:((n - ls) * (d_sphere + 1))], nrow = n - ls, ncol = d_sphere + 1)
+      y <- rbind(yn, yl)
+      y <-
+        matrix(y[1:(n * (d_sphere + 1))], nrow = n, ncol = d_sphere + 1)
+      y <- y / sqrt(rowSums(y^2)) # Normalization of y
+
+      dim(y) <- c(dim(y), 1) # As an array
+      # Spherical distance
+      ind_tri <- sphunif::upper_tri_ind(n)
+      d_ij_sphere <- sphunif::Psi_mat(
+        data = y,
+        use_ind_tri = TRUE,
+        ind_tri = ind_tri
+      )
+      sph_mat <- matrix(0, n, n)
+      sph_mat[lower.tri(sph_mat, diag = FALSE)] <- d_ij_sphere
+      sph_mat[upper.tri(sph_mat, diag = FALSE)] <- d_ij_sphere
+      sph_mat <- drop(sph_mat)[1:(n - ls), (n - ls + 1):n]
+      landmark_polysphere <- dist[not_landmarks, landmarks]
+      # Stress function (only sum the distinct distances and disregard diagonal)
+      return(sum((landmark_polysphere - r_star * sph_mat)^2) / length(landmark_polysphere))
+    }
+    if (python) {
+      bounds <- list(c(-pi, pi))
+      bounds <- append(bounds, rep(list(c(-pi / 2, pi / 2)), (d_sphere + 1) * ls - 1))
+      bounds <- append(bounds, list(c(0, 3 * r_star)))
+
+      # solve landmark MDS first
+      # res_landmark <- scipy_optimize$minimize(landmark_stress,x0 = c(y[landmarks,],r_star), bounds=bounds,tol = tol)
+      res_landmark <- scipy_optimize$minimize(landmark_stress, x0 = c(y[landmarks, ], r_star), method = "BFGS", tol = 5e-5)
+
+      r_star <- res_landmark$x[ls * (d_sphere + 1) + 1] # r_star in optimization
+      yl <-
+        matrix(res_landmark$x[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+      y[landmarks, ] <- yl
+      # if there are non-landmarks left, run the analysis on them
+      if (n - ls > 0) {
+        bounds <- rep(list(c(-pi / 2, pi / 2)), (d_sphere + 1) * (n - ls))
+        #  res <- scipy_optimize$minimize(remaining_stress,x0 = c(y[not_landmarks,]), bounds=bounds,tol = tol)
+        res <- scipy_optimize$minimize(remaining_stress, x0 = c(y[not_landmarks, ]), method = "BFGS", tol = tol)
+        yn <-
+          matrix(res$x, nrow = n - ls, ncol = d_sphere + 1)
+        y[not_landmarks, ] <- yn
+      }
+    } else {
+      # solve landmark MDS first
+      res_landmark <- optim(
+        fn = landmark_stress,
+        par = c(y[landmarks, ], r_star),
+        method = "BFGS",
+        control = list(reltol = tol)
+      )
+      r_star <- res_landmark$par[ls * (d_sphere + 1) + 1] # r_star in optimization
+      yl <-
+        matrix(res_landmark$par[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
+      y[landmarks, ] <- yl
+      # if there are non-landmarks left, run the analysis on them
+      if (n - ls > 0) {
+        res <- optim(
+          fn = remaining_stress,
+          par = c(y[not_landmarks, ]),
+          method = "BFGS",
+          control = list(reltol = tol)
+        )
+        yn <-
+          matrix(res$par, nrow = n - ls, ncol = d_sphere + 1)
+        y[not_landmarks, ] <- yn
+      }
+    }
+
+    # Visualize output
+    stress_initial <- stress(
+      y = c(y_initial, r_star_initial),
+      r = r_star_initial
+    )
+    fun <- stress(c(y, r_star), r_star)
+    # r.hat <- res$x[n * (d_sphere + 1) + 1]
+    MDS_info <- list(
+      stress_init = stress_initial,
+      stress_final = fun,
+      rstar = r_star_initial,
+      r.hat = r_star
+    )
+    out <-
+      matrix(y, nrow = n, ncol = d_sphere + 1)
+    out <- out / sqrt(rowSums(out^2))
+  }
+  print(MDS_info)
+})
+print(Sys.time() - time)
+```
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Straight trends on (S^1)^2
+set.seed(5)
+n <- 200
+samp_1 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+plot(samp_1,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), col = rainbow(n),
+  axes = FALSE, xlab = "", ylab = "", pch = 16
+)
+sdetorus::torusAxis()
+clusters <- samp_1
+# get_center(clusters,landmark_size=.1)
+
+plot_MDS_py(clusters, landmark_size = .1, angular = TRUE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Straight trends on (S^1)^3
+set.seed(100)
+n <- 200
+samp_2 <- r_path_s1r(n = n, r = 3, k = c(0, 1, 1), angles = TRUE)
+scatterplot3d::scatterplot3d(
+  samp_2,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), zlim = c(-pi, pi),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_2
+time <- Sys.time()
+invisible(plot_MDS(clusters, angular = TRUE))
+print(Sys.time() - time)
+time <- Sys.time()
+plot_MDS_py(clusters, landmark_size = .1, angular = TRUE)
+print(Sys.time() - time)
+```
+
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Straight trends on (S^1)^2
+set.seed(100)
+n <- 100
+samp_2 <- r_path_s1r(n = n, r = 2, k = c(1, 1), angles = TRUE)
+scatterplot3d::scatterplot3d(
+  samp_2,
+  xlim = c(-pi, pi), ylim = c(-pi, pi), zlim = c(-pi, pi),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_2
+invisible(plot_MDS(clusters, angular = TRUE))
+```
+
+
+```{r, echo=TRUE,fig.keep='all'}
+#' # Small-circle trends on (S^2)^2
+set.seed(20)
+n <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+# clusters_sph <- cbind(sphere_to_angles(samp_3[, , 1]), sphere_to_angles(samp_3[, , 2]))
+# print(clusters)
+time <- Sys.time()
+# pns_data <- plot_MDS(clusters, c(2, 2), angular = FALSE)
+print(Sys.time() - time)
+time <- Sys.time()
+pns_data_py <- plot_MDS_py(clusters, c(2, 2), tol = 2.5e-5, angular = FALSE)
+print(Sys.time() - time)
+
+
+plot(rbind(cbind(pns_data_py[, 1], pns_data[, 1]), cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100))),
+  main = paste("First two Components"), col = c(rainbow(n), rep("black", 100)), xlim = c(-pi, pi), ylim = c(-pi / 2, pi / 2), axes = FALSE,
+  xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i"
+)
+points(lin_interp(cbind(seq(from = -pi, to = pi, by = 2 * pi / 99), rep(0, 100)), N = 10))
+sdetorus::torusAxis(sides = 1)
+axis(side = 2, at = c(-pi, -pi / 2, 0, pi / 2, pi), labels = expression(-pi / 2, -pi / 4, 0, pi / 4, pi / 2))
+```
+
+```{r}
+set.seed(20)
+n <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Small-circle trends on (S^2)^10
+set.seed(20)
+n <- 200
+nspheres <- 10
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_3[, , 1]
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+pns_data <- plot_MDS_py(clusters, rep(2, nspheres), angular = FALSE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Small-circle trends on (S^2)^3
+set.seed(20)
+n <- 200
+nspheres <- 3
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.05)
+
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- samp_3[, , 1]
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+time <- Sys.time()
+# pns_data <- plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+time <- Sys.time()
+pns_data <- plot_MDS_py(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Spiral trends on (S^2)^2
+set.seed(20)
+n <- 200
+
+samp_4 <- r_path_s2r(n = n, r = 2, c = 3, spiral = TRUE, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
+scatterplot3d::scatterplot3d(
+  samp_4[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_4[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+
+clusters <- cbind(samp_4[, , 1], samp_4[, , 2])
+pns_data <- plot_MDS(clusters, c(2, 2), angular = FALSE)
+```
+
+## 3/21/2023
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^2 times (S^1)^3, almost all variance along first two spheres.
+set.seed(20)
+n <- 60
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+samp_4 <- r_path_s1r(n = n, r = 3, k = c(1, 0, 0), sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+
+plot(samp_4[, , 1], xlim = c(-1, 1), ylim = c(-1, 1), col = rainbow(n), pch = 16)
+plot(samp_4[, , 2], xlim = c(-1, 1), ylim = c(-1, 1), col = rainbow(n), pch = 16)
+
+clusters <- cbind(samp_3[, , 1], samp_3[, , 1], samp_4[, , 1], samp_4[, , 2], samp_4[, , 3])
+plot_MDS(clusters, c(2, 2, 1, 1, 1), angular = FALSE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^3, almost all variance along first sphere.
+set.seed(20)
+n <- 60
+nspheres <- 3
+k <- 200
+samp_3 <- r_path_s2r(n = n, r = 1, sigma = 0.05)
+clusters <- samp_3[, , 1]
+
+for (i in c(2:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'} 
+#' Uniform distribution along (S^2)^2
+set.seed(20)
+n <- 60
+nspheres <- 2
+k <- 0
+samp_3 <- r_path_s2r(n = n, r = 1, sigma = 0.05)
+clusters <- rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k)
+scatterplot3d::scatterplot3d(
+  clusters,
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+for (i in c(2:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+
+plot_MDS(clusters, rep(2, nspheres), angular = FALSE, pc = 4)
+```
+
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^4, almost all variance along first two spheres.
+set.seed(20)
+n <- 200
+nspheres <- 4
+k <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+time <- Sys.time()
+# plot_MDS_py(x= clusters, dims = rep(2, nspheres), angular = FALSE, pc=3, landmark_size = 1)
+plot_MDS(x = clusters, dims = rep(2, nspheres), angular = FALSE, pc = 3)
+print(Sys.time() - time)
+```
+```{r}
+tab <- matrix(c(.05, 10.1, 0.056, .1, 10.9, 0.051, .2, 11.1, 0.048, .3, 11.1, .038, .4, 11.8, 0.032, .5, 15.4, .0031, 1, 33.5, .0031), ncol = 3, byrow = TRUE)
+colnames(tab) <- c("Landmark size", "Runtime", "Function value")
+tab <- as.table(tab)
+print(tab)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^6, almost all variance along first two spheres.
+set.seed(20)
+n <- 60
+nspheres <- 6
+k <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^6, curve along first two spheres, uniform along remaining spheres
+set.seed(20)
+n <- 200
+nspheres <- 6
+k <- 0
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+time <- Sys.time()
+pns_data <- plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+time <- Sys.time()
+pns_data <- plot_MDS_py(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^10, almost all variance along first two spheres.
+set.seed(20)
+n <- 150
+nspheres <- 10
+k <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^20, almost all variance along first two spheres.
+set.seed(20)
+n <- 150
+nspheres <- 20
+k <- 200
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+clusters1 <- polySphereToAngles(clusters, rep(2, 20))
+time <- Sys.time()
+pns_data <- plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+time <- Sys.time()
+pns_data_py <- plot_MDS_py(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+```
+
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+#' # Small circle trends on (S^2)^60, almost all variance along first two spheres.
+set.seed(20)
+n <- 300
+nspheres <- 60
+k <- 300
+samp_3 <- r_path_s2r(n = n, r = 2, sigma = 0.05)
+layout(matrix(c(1, 2), 1))
+scatterplot3d::scatterplot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+scatterplot3d::scatterplot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", color = rainbow(n), pch = 16
+)
+clusters <- cbind(samp_3[, , 1], samp_3[, , 2])
+
+for (i in c(3:nspheres)) {
+  clusters <- cbind(clusters, rotasym::r_vMF(n, c(rotasym::r_unif_sphere(1, 3)), k))
+}
+clusters1 <- polySphereToAngles(clusters, rep(2, 20))
+# time = Sys.time()
+# pns_data <- plot_MDS(clusters, rep(2, nspheres), angular = FALSE)
+# print(Sys.time()-time)
+time <- Sys.time()
+pns_data <- plot_MDS_py(clusters, rep(2, nspheres), angular = FALSE)
+print(Sys.time() - time)
+```
