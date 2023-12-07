@@ -1,5 +1,3 @@
-library(usethis)
-
 # Compare centroid and nearest neighbors on the same clustering
 compare_centers <-
   function(x,
@@ -70,7 +68,7 @@ get_center <-
     }
     # Go straight to upper/lower part
     dist <- dist_polysph_matrix(cart_x, ind_dj = ind_dj, std = FALSE)
-    # Make sure count of landmarks is integral
+    # Make sure count of landmarks is an integer
     ls <- floor(n * landmark_size)
     # Divide data to clusters
     hc <- hclust(as.dist(dist), method = method)
@@ -90,6 +88,7 @@ get_center <-
     }
     return(landmarks)
   }
+
 # Find centroids of polysphere points to run interpolation on
 get_centroids <-
   function(x,

@@ -1,5 +1,3 @@
-library(usethis)
-
 ## Angles to Spheres transformation
 anglesToSphere <- function(theta) {
   if (!is.matrix(theta)) {
