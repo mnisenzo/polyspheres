@@ -35,7 +35,9 @@ MDS_PNS_py <-
     ls <- n * landmark_size
 
     if (is.null(col)) {
+      
       col <- rep("black", n)
+      
     }
 
     # Initial guess for radius is number of spheres in polysphere
@@ -47,7 +49,9 @@ MDS_PNS_py <-
     # Convert from hyperspherical to cartesian coordinates if needed
     cart_x <- x
     if (angular) {
+      
       cart_x <- angles_to_polysph(x, dims)
+      
     }
     
     # Go straight to upper/lower part
@@ -97,7 +101,10 @@ MDS_PNS_py <-
         x.ret = FALSE
       )
     y <- matrix(0, nrow(cart_x), d_sphere + 1)
+    
+    # Define stress function on landmarks
     landmark_stress <- function(y, d_sphere, r_star, d_ij_polysphere_ls) {
+      
       r_star <- y[ls * (d_sphere + 1) + 1] # r_star in optimization
       y <-
         matrix(y[1:(ls * (d_sphere + 1))], nrow = ls, ncol = d_sphere + 1)
@@ -116,6 +123,7 @@ MDS_PNS_py <-
       
       # Stress function (only sum the distinct distances and disregard diagonal)
       return(sum((d_ij_polysphere_ls - r_star * d_ij_sphere)^2) / length(d_ij_polysphere_ls))
+    
     }
 
     # Solves MDS for a single point directly given landmark centroids ls
@@ -135,6 +143,7 @@ MDS_PNS_py <-
       out <- sum((dist - r_star * sph_mat)^2) / length(dist)
       attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x = c(y1), landmarks = yl)
       return(out)
+      
     }
     
     # Solve landmark MDS first
@@ -167,9 +176,12 @@ MDS_PNS_py <-
         
         # Compare landmarks to non-landmarks
         if (gradient) {
+          
           resi <- nlm(projection_stress, p = c(yp[i, ]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i, ])
           res[i, ] <- resi$estimate
+          
         } else {
+          
           resi <- optim(
             fn = projection_stress,
             par = c(yp[i, ]), r_star = r_star, yl = yl, d_sphere = d_sphere, n = n, dist = dist_initial[i, ],
@@ -177,12 +189,19 @@ MDS_PNS_py <-
             control = list(reltol = tol)
           )
           res[i, ] <- resi$par
+        
         }
+        
       }
+      
       y[not_landmarks, ] <- res
+      
     } else {
+      
       y <- yl
+      
     }
+    
     y <- y / sqrt(rowSums(y^2))
     
     # Visualize output
@@ -205,19 +224,23 @@ MDS_PNS_py <-
     
     # Plotting
     if (ncol(x) < pc && d_sphere > 2) {
+      
       pairs(
         t(general$resmat[1:ncol, ]),
         col = col,
         xlim = c(-pi, pi), ylim = c(-pi, pi),
         main = paste("First", ncol, "components, r* =", r_star, collapse = " ")
       )
+      
     } else if (d_sphere > 2) {
+      
       pairs(
         t(general$resmat[1:pc, ]),
         col = col,
         xlim = c(-pi, pi), ylim = c(-pi, pi),
         main = paste("First", pc, "components, r* =", r_star, collapse = " ")
       )
+      
     }
 
     return(
@@ -230,6 +253,7 @@ MDS_PNS_py <-
         radius = r_star
       )
     )
+    
   }
 
 ## Inverting principal curve onto polysphere by MDS
@@ -250,8 +274,11 @@ inverse_MDS_opt <-
     
     # Convert to angular coordinates
     if (angular) {
+      
       x <- angles_to_polysph(x, dims)
+      
     }
+    
     n <- nrow(x)
     d_sphere <- sum(dims)
     comp_x <- mds$MDS_data
@@ -269,6 +296,7 @@ inverse_MDS_opt <-
     res <- matrix(0, nrow = nrow(poly_pc_initial), ncol = sum(dims) + length(dims))
 
     for (i in 1:grid_size) {
+      
       resi <- optim(
         fn = poly_projection_stress,
         par = c(poly_pc_initial[i, ]), r_star = r_star, yl = rect_x[range, ], dims = dims, d_sphere = d_sphere, n = n, dist = dist_initial[i, range],
@@ -276,27 +304,38 @@ inverse_MDS_opt <-
         control = list(reltol = tol)
       )
       res[i, ] <- normalize_poly(resi$par, dims)
+      
     }
+    
     poly_pc <- res
     #poly_pc_angle <- polysph_to_angles(res, dims)
     if (plot_pc) {
+      
       if (ncol(x) < 3) {
+        
         plot(rbind(x, poly_pc),
           col = c(rainbow(n), rep("black", grid_size)), main = paste("First two Components"), axes = FALSE,
           xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i"
         )
+        
       } else {
+        
         plot3d(rbind(x[, 1:3], poly_pc[, 1:3]),
           col = c(rainbow(n), rep("black", grid_size)),
           xlab = "", ylab = "", zlab = "", pch = 19
         )
+        
       }
+      
     }
+    
     return(poly_pc)
+    
   }
 
 # Inverts PNS onto the polysphere using either Nadaraya-Watson or inverse MDS
 inverse_MDS_nw <-function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
+  
   d_sphere <- sum(dims)
   sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
                            PNS = result$pns_info
@@ -305,10 +344,12 @@ inverse_MDS_nw <-function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(
   dist_x <- dist_polysph_cross(x=sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
   nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
   return(nw_pc)
+  
 }
 
 # Inverts PNS onto the polysphere using either Nadaraya-Watson or inverse MDS, takes in polysphere with cartesian coordinates
 inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
+  
   d_sphere <- sum(dims)
   sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
     PNS = result$pns_info
@@ -318,34 +359,47 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
   nw_pc <- NULL
   poly_pc <- NULL
   if (method == "NW") {
+    
     opt_h <- opt_nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius = radius, dims = dims, K = dnorm)
     dist_x <- dist_polysph_cross(x = sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
     nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
     out <- nw_pc
+    
   } else if (method == "both") {
+    
     opt_h <- opt_nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius = radius, dims = dims, K = dnorm)
     dist_x <- dist_polysph_cross(x = sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
     nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
     out <- nw_pc
     poly_pc_angle <- inverse_MDS_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
     poly_pc <- angles_to_polysph(poly_pc_angle, dims)
+    
   } else {
+    
     poly_pc_angle <- inverse_MDS_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
     poly_pc <- angles_to_polysph(poly_pc_angle, dims)
     out <- poly_pc
   }
+  
   if (plot) {
+    
     plot_inverse(x, nw_pc, poly_pc, dims = dims, col = col, grid_size = grid_size, angular = angular, method = method)
+  
   }
+  
   return(out)
+  
 }
 
 
 
 # Returns projection of data to sphere based on weighted distance to landmarks
 weighted_sphere <- function(rows, landmarks, dist_initial, d_sphere) {
+  
   results <- matrix(0, rows, d_sphere + 1)
+  
   for (i in 1:rows) {
+    
     # Get normalized weights from distance matrix
     weights <- 1 / dist_initial[i, ]
     weights <- weights / sum(weights)
@@ -353,53 +407,70 @@ weighted_sphere <- function(rows, landmarks, dist_initial, d_sphere) {
 
     weighted_mean <- res
     results[i, ] <- weighted_mean
+    
   }
+  
   results <- results / sqrt(rowSums(results^2))
   return(results)
+  
 }
 
 # Returns weighted sum of squared distances from landmarks on sphere
 sphdist <- function(x1, group, weights, ind_dj) {
+  
   group_n <- nrow(group)
   x1 <- x1 / sqrt(sum(x1^2))
   squared_dists <- weights %*% polykde::dist_polysph(matrix(group, nrow = group_n), t(matrix(x1)), norm_x = TRUE, norm_y = TRUE, ind_dj = ind_dj)**2
   return(sum(squared_dists))
+  
 }
 
 # Returns gradient for interpolation of a single point from landmarks
 grad_mds <- function(dist, rho, x, landmarks) {
+  
   d <- length(x)
   len_ls <- nrow(landmarks)
   grad_total <- rep(0, d)
   # Gradient equation
   for (j in 1:len_ls) {
+    
     y <- landmarks[j, ]
     # Normalized inner product between point and landmark
     normed_inner <- (x %*% y) / (norm_vec(x) * norm_vec(y))
     entry <- 2 * rho * (dist[j] - rho * acos(normed_inner)) / sqrt(1 - normed_inner^2)
     entry <- entry[1] * ((diag(d) - outer(x / norm_vec(x), x / norm_vec(x))) %*% y) / (norm_vec(x) * norm_vec(y))
     grad_total <- grad_total + entry
+    
   }
+  
   out <- c(grad_total / len_ls)
   return(out)
+  
 }
 
 # Returns projection of data to polysphere based on weighted distance to landmarks
 weighted_polysphere <- function(rows, landmarks, dist_initial, dims) {
+  
   results <- matrix(0, rows, sum(dims) + length(dims))
   for (i in 1:rows) {
+    
     # Get normalized weights from distance matrix
     weights <- 1 / dist_initial[i, ]
     weights <- weights / sum(weights)
     res <- weights %*% landmarks
+    
     results[i, ] <- res
   }
+  
   results <- polykde::proj_polysph(results, comp_ind_dj(dims))
+  
   return(results)
+  
 }
 
 # Solves MDS for a single point directly given landmark centroids ls
 poly_projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
+  
   # landmark points defined outside the function
   y1 <- matrix(normalize_poly(yp, comp_ind_dj(dims)), ncol = length(dims) + sum(dims))
 
@@ -410,4 +481,5 @@ poly_projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
   out <- sum((r_star * dist - polysph_mat)^2) / length(dist)
   attr(out, "gradient") <- grad_mds(dist = dist, rho = r_star, x = c(y1), landmarks = yl)
   return(out)
+  
 }
