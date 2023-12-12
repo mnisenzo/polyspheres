@@ -1,5 +1,5 @@
 ## Angles to Spheres transformation
-anglesToSphere <- function(theta) {
+angles_to_sph <- function(theta) {
   if (!is.matrix(theta)) {
     theta <- matrix(theta, nrow = 1)
   }
@@ -19,8 +19,9 @@ anglesToSphere <- function(theta) {
   }
   return(x)
 }
+
 ## Rectangular to polysphere coordinate transformation
-polySphereToAngles <- function(x, dims) {
+polysph_to_angles <- function(x, dims) {
   if (!is.matrix(x)) {
     x <- matrix(x, nrow = 1)
   }
@@ -40,14 +41,13 @@ polySphereToAngles <- function(x, dims) {
   return(theta)
 }
 
-# turn degrees into radians
+## Turn degrees into radians
 deg2rad <- function(deg) {
   (deg * pi) / (180)
 }
 
-
 ## Polysphere to rectangular coordinate transformation
-polyAnglesToSphere <- function(theta, dims) {
+angles_to_polysph <- function(theta, dims) {
   if (!is.matrix(theta)) {
     theta <- matrix(theta, nrow = 1)
   }
@@ -68,7 +68,7 @@ polyAnglesToSphere <- function(theta, dims) {
 }
 
 ## Toroidal distance
-torus_distance <- function(a, b) {
+torus_dist <- function(a, b) {
   dist.coord <- rep(NA, length(a))
   for (i in seq_along(a)) {
     dist1 <- abs(a[i] - b[i])
@@ -79,15 +79,15 @@ torus_distance <- function(a, b) {
   return(dist.torus)
 }
 
-## compute distance between two points on polysphere
-polysphere_distance <-
+## Compute distance between two points on polysphere
+polysph_dist <-
   function(a,
            b,
            angular = TRUE,
            dims = rep(1, length(a))) {
     if (angular) {
-      a <- polyAnglesToSphere(a, dims)
-      b <- polyAnglesToSphere(b, dims)
+      a <- angles_to_polysph(a, dims)
+      b <- angles_to_polysph(b, dims)
     }
     dist.coord <- rep(NA, length(dims))
     ind <- 0

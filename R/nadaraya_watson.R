@@ -1,12 +1,5 @@
 # Nadaraya-Watson estimator from the sphere to the polysphere
-mNW <- function(x, X, Y, radius = 1, dims = rep(1, ncol(X)), h = .5, dist_x, K = dnorm) {
-  # Arguments
-  # x: matrix (n rows) of evaluation points in R^d
-  # X: matrix (n rows) with points in S^d
-  # Y: matrix (n rows) with points in S^(d_1,...d_r)
-  # dims: (d_1,...,d_r) are the dimensions of the polysphere
-  # h: bandwidth
-  # K: kernel
+nw_sph_polysph <- function(x, X, Y, radius = 1, dims = rep(1, ncol(X)), h = .5, dist_x, K = dnorm) {
 
   # Set bandwidth to positive
   n <- nrow(X)
@@ -30,46 +23,51 @@ mNW <- function(x, X, Y, radius = 1, dims = rep(1, ncol(X)), h = .5, dist_x, K =
 }
 
 # Cross validation for Nadaraya-Watson estimator from sphere to polysphere
-cvNW <- function(X, Y, radius = 1, dims = dims, h, dist_X, K = dnorm) {
+cv_sph_polysph <- function(X, Y, radius = 1, dims = dims, h, dist_X, K = dnorm) {
   n <- nrow(X)
   results <- rep(0, n)
+  
   # Set bandwidth to positive
   h <- abs(h)
   guesses <- matrix(0, nrow = n, ncol = sum(dims) + length(dims))
   for (i in 1:n) {
     x <- X[i, ]
-    guess <- mNW(x, X[-i, ], Y[-i, ], radius = radius, dims = dims, h = h, dist_x = dist_X[i, -i], K = K)
+    guess <- nw_sph_polysph(x, X[-i, ], Y[-i, ], radius = radius, dims = dims, h = h, dist_x = dist_X[i, -i], K = K)
     guesses[i, ] <- guess
   }
   guesses <- normalize_poly(guesses, dims)
   for (i in 1:n) {
     results[i] <- dist_polysph_cross(t(matrix(guesses[i, ])), t(matrix(Y[i, ])), ind_dj = comp_ind_dj(dims))
   }
+  
   # Penalty to minimize average distances
   return(sum(results^2))
 }
 
 # Nadaraya-Watson estimator from the sphere to the polysphere with optimized bandwidth
-opt_mNW <- function(x, X, Y, radius = 1, dims = rep(1, ncol(X)), init_bw = .5, K = dnorm, tol = 5e-2) {
+opt_nw_sph_polysph <- function(x, X, Y, radius = 1, dims = rep(1, ncol(X)), init_bw = .5, K = dnorm, grid = FALSE, tol = 5e-2) {
+  
   # Distance matrix between spherical coordinates
   dist_X <- dist_polysph_cross(X, X, ind_dj = comp_ind_dj(sum(dims)))
+  
   # Distance matrix between principal curve and spherical coordinates
   dist_x <- dist_polysph_cross(x, X, ind_dj = comp_ind_dj(sum(dims)))
-
-  # Weight constant based on norm in cross validation
-  opt_h <- optim(
-    fn = cvNW,
-    par = c(h = init_bw), X = X, Y = Y, radius = radius, dist_X = dist_X, dims = dims, K = K,
-    method = "BFGS",
-    control = list(reltol = tol)
-  )
-  opt_h <- opt_h$par
-  # opt_h <- bw.cv.grid(X=X,Y=Y,dist_X=dist_X, dims = dims,h.grid = diff(range(X)) * (seq(0.1, 1, l = 200))^2,
-  #                     K=K)
-  # print(opt_h)
-
-  result <- mNW(x = x, X = X, Y = Y, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
-  return(result)
+  if(grid){
+    opt_h <- bw.cv.grid(X=X,Y=Y,dist_X=dist_X, dims = dims,h.grid = diff(range(X)) * (seq(0.1, 1, l = 200))^2,
+                        K=K)
+  }
+  else{
+    
+    # Weight constant based on norm in cross validation
+    opt_h <- optim(
+      fn = cv_sph_polysph,
+      par = c(h = init_bw), X = X, Y = Y, radius = radius, dist_X = dist_X, dims = dims, K = K,
+      method = "BFGS",
+      control = list(reltol = tol)
+    )
+    opt_h <- opt_h$par
+  }
+  return(opt_h)
 }
 
 # Find optimum CV bandwidth, with sensible grid
