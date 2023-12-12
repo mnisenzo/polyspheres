@@ -165,7 +165,7 @@ get_clusters <-
     
   }
 
-# Get Frechet mean on polysphere
+# Get extrinsic mean on polysphere
 polysphere_center <- function(x, dims) {
   
   y <- colSums(x)

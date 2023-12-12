@@ -1,0 +1,241 @@
+---
+title: "inverse_MDS_bandwidth"
+output: html_document
+date: "2023-12-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(profvis)
+library(knitr)
+library(rgl)
+library(reticulate)
+library(microbenchmark)
+library(usethis)
+options(rgl.useNULL = TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+knit_hooks$set(webgl = hook_webgl)
+
+# Import all code for STPCA
+setwd("../R")
+mds_sources <- list.files()
+sapply(mds_sources, source)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Clusters on S^2
+set.seed(100)
+n <- 210
+d <- 3
+k <- 100
+nspheres <- 1
+cluster1 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster2 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster3 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+clusters <- rbind(cluster1, cluster2, cluster3)
+col1 <- rep("#009999", (n / 3))
+col2 <- rep("#FF0033", (n / 3))
+col3 <- rep("#66FF00", (n / 3))
+col <- c(col1, col2, col3)
+close3d()
+plot3d(clusters[, 1:3], col = col, xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1))
+
+dims <- rep(2, nspheres)
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+p_curve <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, col = col, gradient = TRUE)
+print(Sys.time() - time)
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+close3d()
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+mfrow3d(nr = 1, nc = 1, sharedMouse = TRUE)
+res <- inverse_MDS_bw(x = clusters, result = p_curve, col = col, grid_size = grid_size, bws=bws, dims = dims, angular = FALSE, method = "NW", plot = FALSE)
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(col, multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^2
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, sigma = 0.10)
+
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+plot3d(
+  samp_3[, , 1],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+plot3d(
+  samp_3[, , 2],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+
+clusters <- samp_3[, , 1]
+dims <- rep(2, nspheres)
+for (i in (2:nspheres)) {
+  clusters <- cbind(clusters, samp_3[, , i])
+}
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+print(Sys.time() - time)
+```
+
+```{r}
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+res <- inverse_MDS_bw(x = clusters, result = centroid_12, grid_size = grid_size, bws=bws, dims = dims, method = "NW", angular = FALSE, plot = FALSE)
+
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+plot3d(rbind(clusters[, 4:6], res[, 4:6]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^2, small circles, offset by .5
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, t = .5, sigma = 0.10)
+
+clusters1 <- samp_3[, , 1]
+dims <- rep(2, nspheres)
+for (i in (2:nspheres)) {
+  clusters1 <- cbind(clusters1, samp_3[, , i])
+}
+clusters <- normalize_poly(clusters1, dims)
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+plot3d(
+  clusters[, 1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+plot3d(
+  clusters[, 4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+
+
+dims <- rep(2, nspheres)
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+print(Sys.time() - time)
+```
+
+```{r}
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+res <- inverse_MDS_bw(x = clusters, result = centroid_12, grid_size = grid_size, bws=bws, dims = dims, method = "NW", angular = FALSE, plot = FALSE)
+
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+plot3d(rbind(clusters[, 4:6], res[, 4:6]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+```
+
+```{r}
+knitr::opts_chunk$set(cache = TRUE)
+
+# Straight trends on (S^2)^2, small circles, offset by .7
+set.seed(5)
+n <- 200
+nspheres <- 2
+samp_3 <- r_path_s2r(n = n, r = nspheres, t = c(.7), sigma = 0.10)
+
+clusters1 <- samp_3[, , 1]
+dims <- rep(2, nspheres)
+for (i in (2:nspheres)) {
+  clusters1 <- cbind(clusters1, samp_3[, , i])
+}
+clusters <- normalize_poly(clusters1, dims)
+
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+plot3d(
+  clusters[, 1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+plot3d(
+  clusters[, 4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = rainbow(n), pch = 16
+)
+
+
+dims <- rep(2, nspheres)
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+print(Sys.time() - time)
+```
+
+```{r}
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+res <- inverse_MDS_bw(x = clusters, result = centroid_12, grid_size = grid_size, bws=bws, dims = dims, method = "NW", angular = FALSE, plot = FALSE)
+
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+plot3d(rbind(clusters[, 4:6], res[, 4:6]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(rainbow(n), multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+```
+
+
+

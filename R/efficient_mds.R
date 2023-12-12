@@ -308,27 +308,6 @@ inverse_MDS_opt <-
     }
     
     poly_pc <- res
-    #poly_pc_angle <- polysph_to_angles(res, dims)
-    if (plot_pc) {
-      
-      if (ncol(x) < 3) {
-        
-        plot(rbind(x, poly_pc),
-          col = c(rainbow(n), rep("black", grid_size)), main = paste("First two Components"), axes = FALSE,
-          xlab = "", ylab = "", pch = 19, xaxs = "i", yaxs = "i"
-        )
-        
-      } else {
-        
-        plot3d(rbind(x[, 1:3], poly_pc[, 1:3]),
-          col = c(rainbow(n), rep("black", grid_size)),
-          xlab = "", ylab = "", zlab = "", pch = 19
-        )
-        
-      }
-      
-    }
-    
     return(poly_pc)
     
   }
@@ -360,8 +339,12 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
   poly_pc <- NULL
   if (method == "NW") {
     
+    # Calculate optimum bandwidth for Nadaraya-Watson
     opt_h <- opt_nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius = radius, dims = dims, K = dnorm)
+    
+    # Distance matrix on the sphere for the principal curve and MDS mapping
     dist_x <- dist_polysph_cross(x = sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
+    
     nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
     out <- nw_pc
     
@@ -383,7 +366,7 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
   
   if (plot) {
     
-    plot_inverse(x, nw_pc, poly_pc, dims = dims, col = col, grid_size = grid_size, angular = angular, method = method)
+    plot_inverse(x = x, poly_pc = out, dims = dims, col = col, grid_size = grid_size, angular = angular, method = method)
   
   }
   
@@ -391,7 +374,31 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
   
 }
 
-
+# Inverts PNS onto the polysphere via Nadaraya-Watson with a range of bandwidths chosen by scalar multiples of the optimum
+inverse_MDS_bw <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), bws, grid_size = 20, method = "NW", angular = TRUE, plot = TRUE) {
+  
+  d_sphere <- sum(dims)
+  sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+                           PNS = result$pns_info
+  )
+  comp_x <- result$MDS_data
+  radius <- result$radius
+  out <- matrix(0, nrow = grid_size*length(bws), ncol = sum(dims)+length(dims))
+  
+  # Calculate optimum bandwidth for Nadaraya-Watson
+  opt_h <- opt_nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius = radius, dims = dims, K = dnorm)
+  
+  # Distance matrix on the sphere for the principal curve and MDS mapping
+  dist_x <- dist_polysph_cross(x = sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
+  
+  for(i in 1:length(bws)){
+    
+    nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h*bws[i], K = dnorm)
+    out[((i-1)*grid_size+1):(i*grid_size),] <- nw_pc
+    
+  } 
+  return(out)
+}
 
 # Returns projection of data to sphere based on weighted distance to landmarks
 weighted_sphere <- function(rows, landmarks, dist_initial, d_sphere) {
@@ -468,11 +475,11 @@ weighted_polysphere <- function(rows, landmarks, dist_initial, dims) {
   
 }
 
-# Solves MDS for a single point directly given landmark centroids ls
+# Solves MDS from the sphere to the polysphere for a single point directly given landmark centroids ls
 poly_projection_stress <- function(yp, d_sphere, dims, n, yl, r_star, dist) {
   
   # landmark points defined outside the function
-  y1 <- matrix(normalize_poly(yp, comp_ind_dj(dims)), ncol = length(dims) + sum(dims))
+  y1 <- matrix(normalize_poly(yp, dims), ncol = length(dims) + sum(dims))
 
   ind_dj <- comp_ind_dj(dims)
   polysph_mat <- dist_polysph_cross(x = y1, y = yl, ind_dj = ind_dj, norm_x = TRUE, norm_y = TRUE, std = FALSE)

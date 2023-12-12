@@ -3,7 +3,7 @@ title: "inverse MDS"
 output:
   html_document: default
   pdf_document: default
-date: "2023-08-01"
+date: "2023-12-11"
 editor_options:
   chunk_output_type: inline
 ---
@@ -47,12 +47,12 @@ landmark_size <- .1
 tol <- 5e-3
 landmark_tol <- 5e-4
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = polyAnglesToSphere(clusters, dims), dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_MDS_py(x = angles_to_polysph(clusters, dims), dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
-res <- invert_MDS(x = polyAnglesToSphere(clusters, dims), result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = TRUE, plot = TRUE)
+res <- inverse_MDS(x = angles_to_polysph(clusters, dims), result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = TRUE, plot = TRUE)
 ```
 
 ```{r}
@@ -82,7 +82,7 @@ for (i in (2:nspheres)) {
   clusters <- cbind(clusters, samp_3[, , i])
 }
 dims <- rep(2, nspheres)
-plot(polyAnglesToSphere(clusters[, 4:6], c(2)), col = rainbow(n))
+plot(angles_to_polysph(clusters[, 4:6], c(2)), col = rainbow(n))
 ```
 
 ```{r}
@@ -125,7 +125,7 @@ print(Sys.time() - time)
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- invert_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -174,7 +174,7 @@ print(Sys.time() - time)
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 3, sharedMouse = TRUE)
-res <- invert_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -230,7 +230,7 @@ print(Sys.time() - time)
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- invert_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -282,7 +282,7 @@ print(Sys.time() - time)
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- invert_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),

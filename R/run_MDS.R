@@ -53,17 +53,11 @@ plot_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular =
 }
 
 # Plot the inverted principle curve with the original dataset.
-plot_inverse <- function(x, nw_pc = NULL, poly_pc = NULL, col = rainbow(nrow(x)), dims = rep(1, ncol(x)), grid_size = 100, angular = TRUE, method = "NW") {
+plot_inverse <- function(x, poly_pc, col = rainbow(nrow(x)), dims = rep(1, ncol(x)), grid_size = 100, angular = TRUE, method = "NW") {
   
   if (angular) {
     
     clusters <- polysph_to_angles(x, dims)
-    if (!is.null(nw_pc)) {
-      
-      nw_pc <- polysph_to_angles(nw_pc, dims)
-      
-    }
-    
     if (!is.null(poly_pc)) {
       
       poly_pc <- polysph_to_angles(poly_pc, dims)
@@ -85,7 +79,7 @@ plot_inverse <- function(x, nw_pc = NULL, poly_pc = NULL, col = rainbow(nrow(x))
   
   if (method == "NW") {
     
-    out <- rbind(clusters, nw_pc)
+    out <- rbind(clusters, poly_pc)
     if (angular) {
       
       out <- out - pi
@@ -102,28 +96,6 @@ plot_inverse <- function(x, nw_pc = NULL, poly_pc = NULL, col = rainbow(nrow(x))
     } else {
       
       plot3d(out, xlim = xlim, ylim = ylim, zlim = zlim, col = c(col, rep("black", grid_size)))
-    
-    }
-    
-  } else if (method == "both") {
-    
-    out <- rbind(clusters, nw_pc, poly_pc)
-    if (angular) {
-      
-      out <- out - pi
-      
-    }
-    
-    if (ncol(out) < 3) {
-      
-      plot(out,
-        col = c(col, rep("black", grid_size), rep("grey", grid_size)),
-        xlab = "", ylab = "", xlim = xlim, ylim = ylim, pch = 19, xaxs = "i", yaxs = "i"
-      )
-      
-    } else {
-      
-      plot3d(out, xlim = xlim, ylim = ylim, zlim = zlim, col = c(col, rep("black", grid_size), rep("grey", grid_size)))
     
     }
     

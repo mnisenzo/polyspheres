@@ -97,3 +97,22 @@ modified_R2 <- function(y, f) {
   return(result)
   
 }
+
+# Repeat a set of objects n times in order
+multiple_reps <- function(obj_list, n){
+  
+  l = length(obj_list)
+  out <- rep(0, n*l)
+  for(i in 1:l){
+    out[((i-1)*n+1):(i*n)] = rep(obj_list[i],n)
+  }
+  return(out)
+}
+
+# Create a gradient for n objects
+col_grad <- function(n, start=0,stop =.65){
+  out <- rep(0,n)
+  rgbs <- lin_interp(matrix(rep(c(start,stop),3),nrow=2), n)
+  cols <- apply(rgbs,1,{function(x) rgb(x[1],x[2],x[3])})
+  return(cols)
+}
