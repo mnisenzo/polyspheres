@@ -67,6 +67,7 @@ get_center <-
     # Pick the point closest to the center of each cluster as a landmark
     landmarks <- numeric(ls)
     for (i in 1:ls) {
+      
       grpi <- x[ct == i, ]
 
       # Convert to data frame for the dist_to_centroids function

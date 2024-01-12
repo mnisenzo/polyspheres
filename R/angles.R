@@ -9,19 +9,19 @@ angles_to_sph <- function(theta) {
   
   d <- ncol(theta)
   x <- matrix(0, nrow = nrow(theta), ncol = d + 1)
-  cosTheta <- cos(theta)
-  sinTheta <- sin(theta)
+  cos_theta <- cos(theta)
+  sin_theta <- sin(theta)
   if (d == 1) {
     
-    x <- cbind(cosTheta, sinTheta)
+    x <- cbind(cos_theta, sin_theta)
     
   } else {
     
-    prodSinTheta <- t(apply(sinTheta, 1, cumprod))
+    prod_sin_theta <- t(apply(sin_theta, 1, cumprod))
     x <- cbind(
-      cosTheta[, 1, drop = FALSE], prodSinTheta[, -d, drop = FALSE] *
-        cosTheta[, -1, drop = FALSE],
-      prodSinTheta[, d, drop = FALSE]
+      cos_theta[, 1, drop = FALSE], prod_sin_theta[, -d, drop = FALSE] *
+        cos_theta[, -1, drop = FALSE],
+      prod_sin_theta[, d, drop = FALSE]
     )[, , drop = TRUE]
     
   }
@@ -101,16 +101,16 @@ angles_to_polysph <- function(theta, dims) {
 ## Toroidal distance
 torus_dist <- function(a, b) {
   
-  dist.coord <- rep(NA, length(a))
+  dist_coord <- rep(NA, length(a))
   for (i in seq_along(a)) {
     dist1 <- abs(a[i] - b[i])
     dist2 <- 2 * pi - abs(a[i] - b[i])
-    dist.coord[i] <- min(dist1, dist2)^2
+    dist_coord[i] <- min(dist1, dist2)^2
     
   }
   
-  dist.torus <- sqrt(sum(dist.coord))
-  return(dist.torus)
+  dist_torus <- sqrt(sum(dist_coord))
+  return(dist_torus)
   
 }
 
@@ -128,7 +128,7 @@ polysph_dist <-
       
     }
     
-    dist.coord <- rep(NA, length(dims))
+    dist_coord <- rep(NA, length(dims))
     ind <- 0
     for (i in seq_along(dims)) {
       
@@ -136,11 +136,11 @@ polysph_dist <-
       a1 <- a[(ind + 1):(ind + d + 1)]
       b1 <- b[(ind + 1):(ind + d + 1)]
       ind <- ind + d + 1
-      dist.coord[i] <- acos(a1 %*% b1)
+      dist_coord[i] <- acos(a1 %*% b1)
       
     }
 
-    dist.sphere <- sqrt(sum(dist.coord**2))
-    return(dist.sphere)
+    dist_sphere <- sqrt(sum(dist_coord**2))
+    return(dist_sphere)
     
   }

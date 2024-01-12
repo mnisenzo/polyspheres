@@ -7,12 +7,12 @@ library(plot3D)
 library(usethis)
 
 # Run MDS on polysphere, plot the first three principal components, and plot the residuals in the first 3 dimensions
-plot_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), col = rainbow(nrow(x)), tol = 5e-3, landmark_tol = 5e-4, gradient = FALSE) {
+plot_mds <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), col = rainbow(nrow(x)), tol = 5e-3, landmark_tol = 5e-4, gradient = FALSE) {
   
   d_sphere <- sum(dims)
-  simulation_2d <- MDS_PNS_py(x = x, angular = angular, dims = dims, col = col, landmark_size = landmark_size, tol = tol, landmark_tol = landmark_tol, method = "Main", pc = pc, gradient = gradient)
-  print(simulation_2d$MDS_info)
-  sc <- march_PNS1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+  simulation_2d <- mds_pns(x = x, angular = angular, dims = dims, col = col, landmark_size = landmark_size, tol = tol, landmark_tol = landmark_tol, method = "Main", pc = pc, gradient = gradient)
+  print(simulation_2d$mds_info)
+  sc <- march_pns1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
     PNS = simulation_2d$pns_info
   )
   if (sum(dims) < 3) {
@@ -36,10 +36,10 @@ plot_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular =
     sdetorus::torusAxis(sides = 1)
     axis(side = 2, at = c(-pi, -pi / 2, 0, pi / 2, pi), labels = expression(-pi / 2, -pi / 4, 0, pi / 4, pi / 2))
 
-    sc <- march_PNS1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+    sc <- march_pns1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
       PNS = simulation_2d$pns_info
     )
-    plot3d(rbind(simulation_2d$MDS_data, sc)[, 1:3],
+    plot3d(rbind(simulation_2d$mds_data, sc)[, 1:3],
       col = c(col, rep("black", 100)),
       xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
       xlab = "", ylab = "", zlab = "", pch = 19
@@ -127,15 +127,15 @@ plot_inverse <- function(x, poly_pc, col = rainbow(nrow(x)), dims = rep(1, ncol(
 }
 
 # Run MDS on polysphere, return results
-run_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), tol = 5e-3, landmark_tol = 5e-4, plot = FALSE, gradient = FALSE) {
+run_mds <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), tol = 5e-3, landmark_tol = 5e-4, plot = FALSE, gradient = FALSE) {
   
   n <- nrow(x)
   d_sphere <- sum(dims)
-  simulation_2d <- MDS_PNS_py(x = x, angular = angular, dims = dims, col = rainbow(n), landmark_size = landmark_size, tol = tol, landmark_tol = landmark_tol, method = "Main", pc = pc, gradient = gradient)
+  simulation_2d <- mds_pns(x = x, angular = angular, dims = dims, col = rainbow(n), landmark_size = landmark_size, tol = tol, landmark_tol = landmark_tol, method = "Main", pc = pc, gradient = gradient)
   if (plot) {
     
-    print(simulation_2d$MDS_info)
-    sc <- march_PNS1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+    print(simulation_2d$mds_info)
+    sc <- march_pns1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
       PNS = simulation_2d$pns_info
     )
     if (sum(dims) < 3) {
@@ -159,10 +159,10 @@ run_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = 
       sdetorus::torusAxis(sides = 1)
       axis(side = 2, at = c(-pi, -pi / 2, 0, pi / 2, pi), labels = expression(-pi / 2, -pi / 4, 0, pi / 4, pi / 2))
 
-      sc <- march_PNS1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
+      sc <- march_pns1_shapes(seq(0, simulation_2d$pns_info$radii[d_sphere] * 2 * pi, l = 100),
         PNS = simulation_2d$pns_info
       )
-      plot3d(rbind(simulation_2d$MDS_data, sc)[, 1:3],
+      plot3d(rbind(simulation_2d$mds_data, sc)[, 1:3],
         col = c(rainbow(n), rep("black", 100)),
         xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1), box = FALSE, axes = FALSE,
         xlab = "", ylab = "", zlab = "", pch = 19
@@ -173,24 +173,24 @@ run_MDS_py <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = 
     
   }
   
-  return(list(pns_data = simulation_2d$pns_data, MDS_info = simulation_2d$MDS_info))
+  return(list(pns_data = simulation_2d$pns_data, mds_info = simulation_2d$mds_info))
 
 }
 
 # Compare centroid and interpolation MDS accuracy and runtime with default
-compare_MDS <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), tol = 5e-3, landmark_tol = 5e-4, plot = FALSE, default = FALSE) {
+compare_mds <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular = TRUE, pc = min(3, ncol(x)), tol = 5e-3, landmark_tol = 5e-4, plot = FALSE, default = FALSE) {
 
   time <- Sys.time()
-  res_gradient <- run_MDS_py(x, landmark_size = landmark_size, dims = dims, angular = angular, plot = plot, gradient = TRUE)
+  res_gradient <- run_mds(x, landmark_size = landmark_size, dims = dims, angular = angular, plot = plot, gradient = TRUE)
   gradient_time <- Sys.time() - time
 
   time <- Sys.time()
-  res_centroid <- run_MDS_py(x, landmark_size = landmark_size, dims = dims, angular = angular, plot = plot, gradient = FALSE)
+  res_centroid <- run_mds(x, landmark_size = landmark_size, dims = dims, angular = angular, plot = plot, gradient = FALSE)
   centroid_time <- Sys.time() - time
 
   # Return function values for residual and centroid MDS
-  value_gradient <- res_gradient$MDS_info$stress_final
-  value_centroids <- res_centroid$MDS_info$stress_final
+  value_gradient <- res_gradient$mds_info$stress_final
+  value_centroids <- res_centroid$mds_info$stress_final
   function_values <- c(value_gradient, value_centroids)
   
   # Account for minimum R^2 scores up to a flip
@@ -198,10 +198,10 @@ compare_MDS <- function(x, dims = rep(1, ncol(x)), landmark_size = .1, angular =
   if (default) {
     
     time <- Sys.time()
-    res <- run_MDS(x, dims = dims, angular = angular, tol = tol, plot = plot)
+    res <- run_mds(x, dims = dims, angular = angular, tol = tol, plot = plot)
     normal_time <- Sys.time() - time
-    value_MDS <- res$MDS_info$stress_final
-    function_values <- c(value_gradient, value_centroids, value_MDS)
+    value_mds <- res$mds_info$stress_final
+    function_values <- c(value_gradient, value_centroids, value_mds)
     times <- c(gradient_time, centroid_time, normal_time)
     
   }
@@ -232,7 +232,7 @@ compare_trials <- function(n, nspheres, landmark_size, trials, angular = FALSE, 
     
     samp_1 <- r_path_s1r(n = n, r = nspheres, k = rep(1, nspheres), angles = TRUE)
     clusters <- samp_1
-    trial_res <- compare_MDS(clusters, landmark_size = landmark_size, dims = dims, angular = angular, landmark_tol = 5e-4, tol = 5e-4, plot = FALSE, default = default)
+    trial_res <- compare_mds(clusters, landmark_size = landmark_size, dims = dims, angular = angular, landmark_tol = 5e-4, tol = 5e-4, plot = FALSE, default = default)
 
     res <- res + trial_res
     
@@ -243,7 +243,7 @@ compare_trials <- function(n, nspheres, landmark_size, trials, angular = FALSE, 
 }
 
 ## Transformation from Space of Principal scores to original sphere
-march_PNS1_shapes <- function(theta, PNS) {
+march_pns1_shapes <- function(theta, PNS) {
   
   N <- length(theta)
   d <- length(PNS$mean) - 1

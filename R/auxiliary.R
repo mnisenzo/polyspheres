@@ -1,5 +1,3 @@
-## Auxiliary functions
-
 # Plot a sphere
 sphere1.f <- function(x0 = 0,
                       y0 = 0,

@@ -47,12 +47,12 @@ landmark_size <- .1
 tol <- 5e-3
 landmark_tol <- 5e-4
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = angles_to_polysph(clusters, dims), dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_mds(x = angles_to_polysph(clusters, dims), dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
-res <- inverse_MDS(x = angles_to_polysph(clusters, dims), result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = TRUE, plot = TRUE)
+res <- inverse_mds(x = angles_to_polysph(clusters, dims), result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = TRUE, plot = TRUE)
 ```
 
 ```{r}
@@ -118,14 +118,14 @@ tol <- 5e-3
 landmark_tol <- 5e-4
 
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_mds(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -167,14 +167,14 @@ tol <- 5e-3
 landmark_tol <- 5e-4
 
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 3, sharedMouse = TRUE)
-res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_mds(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -223,14 +223,14 @@ tol <- 5e-3
 landmark_tol <- 5e-4
 
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_mds(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
@@ -275,14 +275,14 @@ tol <- 5e-3
 landmark_tol <- 5e-4
 
 time <- Sys.time()
-centroid_12 <- plot_MDS_py(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
+centroid_12 <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, gradient = TRUE)
 print(Sys.time() - time)
 ```
 
 ```{r}
 close3d()
 mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
-res <- inverse_MDS(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
+res <- inverse_mds(x = clusters, result = centroid_12, grid_size = 100, dims = dims, method = "NW", angular = FALSE, plot = TRUE)
 
 plot3d(rbind(clusters[, 4:6], res[, 4:6]),
   xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),

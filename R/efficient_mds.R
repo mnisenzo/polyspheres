@@ -15,7 +15,7 @@ library(plot3D)
 library(usethis)
 
 ## MDS & PNS for polysphere data (steps 1 and 2 of PCA)
-MDS_PNS_py <-
+mds_pns <-
   function(x,
            init = "cmds",
            angular = TRUE,
@@ -207,10 +207,10 @@ MDS_PNS_py <-
     # Visualize output
     stress_initial <- stress(
       y = c(y_initial, r_star_initial),
-      r = r_star_initial, n = n, d_sphere = d_sphere, d_ij_polysphere = d_ij_polysphere
+      r_star = r_star_initial, n = n, d_sphere = d_sphere, d_ij_polysphere = d_ij_polysphere
     )
     fun <- stress(c(y, r_star), r_star, n = n, d_sphere = d_sphere, d_ij_polysphere = d_ij_polysphere)
-    MDS_info <- list(
+    mds_info <- list(
       stress_init = stress_initial,
       stress_final = fun,
       rstar = r_star_initial,
@@ -245,8 +245,8 @@ MDS_PNS_py <-
 
     return(
       list(
-        MDS_data = out,
-        MDS_info = MDS_info,
+        mds_data = out,
+        mds_info = mds_info,
         pns_data = t(general$resmat),
         pns_info = general$PNS,
         pns_var = general$percent,
@@ -257,7 +257,7 @@ MDS_PNS_py <-
   }
 
 ## Inverting principal curve onto polysphere by MDS
-inverse_MDS_opt <-
+inverse_mds_opt <-
   function(x,
            mds,
            init = "cmds",
@@ -281,17 +281,17 @@ inverse_MDS_opt <-
     
     n <- nrow(x)
     d_sphere <- sum(dims)
-    comp_x <- mds$MDS_data
+    comp_x <- mds$mds_data
     rect_x <- angles_to_polysph(x, dims)
 
     # Evenly spaced points along first principal curve
-    sc <- march_PNS1_shapes(seq(0, mds$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+    sc <- march_pns1_shapes(seq(0, mds$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
       PNS = mds$pns_info
     )
     dist_initial <- dist_polysph_cross(sc, comp_x, ind_dj = comp_ind_dj(d_sphere), std = FALSE)
 
     range <- seq(1, n, floor(n / n))
-    r_star <- mds$MDS_info$rstar
+    r_star <- mds$mds_info$rstar
     poly_pc_initial <- weighted_polysphere(rows = nrow(sc), landmarks = rect_x[range, ], dist_initial = dist_initial[, range], dims = dims)
     res <- matrix(0, nrow = nrow(poly_pc_initial), ncol = sum(dims) + length(dims))
 
@@ -313,10 +313,10 @@ inverse_MDS_opt <-
   }
 
 # Inverts PNS onto the polysphere using either Nadaraya-Watson or inverse MDS
-inverse_MDS_nw <-function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
+inverse_mds_nw <-function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
   
   d_sphere <- sum(dims)
-  sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+  sc1 <- march_pns1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
                            PNS = result$pns_info
   )
   opt_h <- opt_nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius = radius, dims = dims, K = dnorm)
@@ -327,13 +327,13 @@ inverse_MDS_nw <-function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(
 }
 
 # Inverts PNS onto the polysphere using either Nadaraya-Watson or inverse MDS, takes in polysphere with cartesian coordinates
-inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
+inverse_mds <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), grid_size = 100, method = "NW", angular = TRUE, plot = TRUE) {
   
   d_sphere <- sum(dims)
-  sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+  sc1 <- march_pns1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
     PNS = result$pns_info
   )
-  comp_x <- result$MDS_data
+  comp_x <- result$mds_data
   radius <- result$radius
   nw_pc <- NULL
   poly_pc <- NULL
@@ -354,12 +354,12 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
     dist_x <- dist_polysph_cross(x = sc1, comp_x, ind_dj = comp_ind_dj(sum(dims)))
     nw_pc <- nw_sph_polysph(x = sc1, X = comp_x, Y = x, radius=radius, dims = dims, dist_x = dist_x, h = opt_h, K = dnorm)
     out <- nw_pc
-    poly_pc_angle <- inverse_MDS_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
+    poly_pc_angle <- inverse_mds_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
     poly_pc <- angles_to_polysph(poly_pc_angle, dims)
     
   } else {
     
-    poly_pc_angle <- inverse_MDS_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
+    poly_pc_angle <- inverse_mds_opt(x = x, angular = FALSE, dims = dims, grid_size = grid_size, mds = result, plot_pc = FALSE)
     poly_pc <- angles_to_polysph(poly_pc_angle, dims)
     out <- poly_pc
   }
@@ -375,13 +375,13 @@ inverse_MDS <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)
 }
 
 # Inverts PNS onto the polysphere via Nadaraya-Watson with a range of bandwidths chosen by scalar multiples of the optimum
-inverse_MDS_bw <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), bws, grid_size = 20, method = "NW", angular = TRUE, plot = TRUE) {
+inverse_mds_bw <- function(x, result, dims = rep(1, ncol(x)), col = rainbow(nrow(x)), bws, grid_size = 20, method = "NW", angular = TRUE, plot = TRUE) {
   
   d_sphere <- sum(dims)
-  sc1 <- march_PNS1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
+  sc1 <- march_pns1_shapes(seq(0, result$pns_info$radii[d_sphere] * 2 * pi, l = grid_size),
                            PNS = result$pns_info
   )
-  comp_x <- result$MDS_data
+  comp_x <- result$mds_data
   radius <- result$radius
   out <- matrix(0, nrow = grid_size*length(bws), ncol = sum(dims)+length(dims))
   
