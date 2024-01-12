@@ -19,10 +19,10 @@ or see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-import resource, sys
+import sys
 from math import sqrt
 
-resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
+#resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 sys.setrecursionlimit(10**5)
 
 ################################################################################

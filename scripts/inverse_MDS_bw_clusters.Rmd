@@ -1,0 +1,144 @@
+---
+title: "inverse_mds_bw_clusters"
+output: html_document
+date: "2023-12-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(profvis)
+library(knitr)
+library(rgl)
+library(reticulate)
+library(microbenchmark)
+library(usethis)
+options(rgl.useNULL = TRUE)
+rgl::setupKnitr(autoprint = TRUE)
+knit_hooks$set(webgl = hook_webgl)
+
+# Import all code for STPCA
+setwd("../R")
+mds_sources <- list.files()
+sapply(mds_sources, source)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Clusters on S^2 x S^2
+set.seed(100)
+n <- 210
+d <- 3
+k <- 100
+nspheres <- 2
+cluster1 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster2 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster3 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+clusters <- rbind(cluster1, cluster2, cluster3)
+cluster1 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster2 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster3 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+clusters <- cbind(clusters,rbind(cluster1, cluster2, cluster3))
+
+col1 <- rep("#009999", (n / 3))
+col2 <- rep("#FF0033", (n / 3))
+col3 <- rep("#66FF00", (n / 3))
+col <- c(col1, col2, col3)
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+plot3d(
+  clusters[, 1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = col, pch = 16
+)
+plot3d(
+  clusters[, 4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = col, pch = 16
+)
+
+dims <- rep(2, nspheres)
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+p_curve <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, col = col, gradient = TRUE)
+print(Sys.time() - time)
+```
+```{r}
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+res <- inverse_mds_bw(x = clusters, result = p_curve, grid_size = grid_size, bws=bws, dims = dims, method = "NW", angular = FALSE, plot = FALSE)
+
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(col, multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+plot3d(rbind(clusters[, 4:6], res[, 4:6]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(col, multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+```
+
+```{r, echo=TRUE,results='hide',fig.keep='all'}
+# Clusters on S^2, band on S^2
+set.seed(100)
+n <- 210
+d <- 3
+k <- 100
+nspheres <- 2
+cluster1 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster2 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+cluster3 <- rotasym::r_vMF(n / 3, c(rotasym::r_unif_sphere(1, 3)), k)
+clusters <- rbind(cluster1, cluster2, cluster3)
+clusters <- cbind(clusters,r_path_s2r(n = n, r = 1, sigma = 0.10)[, , 1])
+
+col1 <- rep("#009999", (n / 3))
+col2 <- rep("#FF0033", (n / 3))
+col3 <- rep("#66FF00", (n / 3))
+col <- c(col1, col2, col3)
+
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+plot3d(
+  clusters[, 1:3],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = col, pch = 16
+)
+plot3d(
+  clusters[, 4:6],
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = col, pch = 16
+)
+
+dims <- rep(2, nspheres)
+angular <- FALSE
+landmark_size <- .1
+tol <- 5e-3
+landmark_tol <- 5e-4
+
+time <- Sys.time()
+p_curve <- plot_mds(x = clusters, dims = dims, landmark_size = landmark_size, angular = angular, tol = tol, landmark_tol = landmark_tol, col = col, gradient = TRUE)
+print(Sys.time() - time)
+```
+
+```{r}
+close3d()
+mfrow3d(nr = 1, nc = 2, sharedMouse = TRUE)
+
+grid_size = 20
+bws=c(.0625,.125,.25,1,2,4,8,16,32,64)
+res <- inverse_mds_bw(x = clusters, result = p_curve, grid_size = grid_size, bws=bws, dims = dims, method = "NW", angular = FALSE, plot = FALSE)
+
+plot3d(rbind(clusters[, 1:3], res[, 1:3]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(col, multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+plot3d(rbind(clusters[, 4:6], res[, 4:6]),
+  xlim = c(-1, 1), ylim = c(-1, 1), zlim = c(-1, 1),
+  xlab = "", ylab = "", zlab = "", col = c(col, multiple_reps(col_grad(length(bws)-1),grid_size)), pch = 16
+)
+```
