@@ -1,0 +1,23 @@
+Package: sppca
+Type: Package
+Title: Scaled Polyspherical Principal Component Analysis
+Version: 0.1.0
+Authors@R: c(
+    person("Michael", "Nisenzon", role = c("aut", "cre"),
+           email = "mnisenzon@unc.edu"),
+    person("Eduardo", "García-Portugués", role = "aut"),
+    person("J. S.", "Marron", role = "aut"))
+Description: Dimension reduction for data on products of spheres
+    (polyspheres), such as the spoke directions of skeletal representations
+    (s-reps). Implements landmark scaled spherical multidimensional scaling
+    to a hypersphere with data-driven radius, principal nested spheres on
+    the scaled data, and Nadaraya-Watson / local linear inversion of modes
+    of variation back to the polysphere. Competing methods (tangent PCA,
+    extrinsic PCA, composite principal nested spheres) are included.
+License: GPL-3
+Encoding: UTF-8
+Depends: R (>= 4.1)
+Imports: shapes, polykde, rotasym, stats, graphics, grDevices, utils
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.1
