@@ -2,35 +2,51 @@
 % Please edit documentation in R/inverse.R
 \name{mode_polysph}
 \alias{mode_polysph}
-\title{Local polynomial mode of variation on the polysphere}
+\title{Local linear mode of variation on the polysphere}
 \usage{
-mode_polysph(t, scores, X, d, p = 1, h = NULL)
+mode_polysph(
+  t,
+  scores,
+  X,
+  d,
+  p = 1,
+  h = NULL,
+  h_grid = 10^seq(-1, 0.5, l = 31)
+)
 }
 \arguments{
-\item{t}{evaluation points for the score.}
+\item{t}{vector with the evaluation points of the score.}
 
 \item{scores}{vector of size \code{n} with the scores.}
 
 \item{X}{matrix of size \code{c(n, sum(d) + r)} with the sample.}
 
-\item{d}{vector of dimensions of the polysphere.}
+\item{d}{vector of size \code{r} with the dimensions of the polysphere.}
 
-\item{p}{degree of the local fit.}
+\item{p}{degree of the local fit. Defaults to \code{1}.}
 
-\item{h}{bandwidth multiplier. If \code{NULL}, chosen by leave-one-out
-cross-validation.}
+\item{h}{bandwidth multiplier (in units of \code{sd(scores)}). If
+\code{NULL} (default), chosen by leave-one-out cross-validation.}
+
+\item{h_grid}{grid of bandwidth multipliers for the cross-validation.}
 }
 \value{
 A matrix of size \code{c(length(t), sum(d) + r)} with attribute
-\code{"h"}.
+\code{"h"}, the bandwidth multiplier used.
 }
 \description{
 Estimates the conditional extrinsic mean
-\eqn{t \mapsto \mathrm{proj}\, E[\boldsymbol{X} \mid \xi_j = t]} of the
-polyspherical sample given its \eqn{j}-th principal score
-\eqn{\xi_j}, by local constant (\code{p = 0}) or local linear
-(\code{p = 1}) regression (\code{\link{ll_scores_polysph}}; for
-\code{p = 0} it coincides with \code{\link[polykde]{kre_polysph}}).
-The bandwidth, in units of the standard deviation of the scores, is
-chosen by leave-one-out cross-validation.
+\eqn{t \mapsto \mathrm{proj}\, E[\boldsymbol{X} \mid \xi = t]} of a
+polyspherical sample given a scalar score \eqn{\xi}, by local constant
+(\code{p = 0}) or local linear (\code{p = 1}) regression. This is the
+estimator \code{\link[polykde]{kre_polysph}} with a bandwidth chosen by
+leave-one-out cross-validation, computed with
+\code{\link{ll_scores_polysph}}.
+}
+\examples{
+set.seed(1)
+X <- r_circles_polysph(n = 80, r = 3, theta_range = c(0, pi))
+m <- mode_polysph(t = c(0.5, 1.5, 2.5), scores = attr(X, "theta"), X = X,
+                  d = rep(2, 3))
+attr(m, "h")
 }

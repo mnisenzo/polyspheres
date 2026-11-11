@@ -20,5 +20,5 @@ A matrix of size \code{c(m, p)} with scores.
 Projects new polyspherical observations onto a fitted
 SP-PCA: out-of-sample scaled MDS through the landmarks (spherical Gower
 interpolation refined by L-BFGS), followed by projection onto the
-fitted nested spheres (\code{shapes:::PNSs2e}).
+fitted nested spheres (\code{\link{pns_s2e}}).
 }

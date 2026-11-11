@@ -21,6 +21,12 @@
 #' @references
 #' Marron, J. S. and Dryden, I. L. (2021). \emph{Object Oriented Data
 #' Analysis}. Chapman and Hall/CRC, Boca Raton.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 150, r = 3)
+#' tp <- tangent_pca(X, d = rep(2, 3))
+#' col <- hcl.colors(150, "Spectral")[rank(attr(X, "theta"))]
+#' plot_scores_matrix(tp$scores, n_comp = 3, col = col, var = tp$var)
 #' @export
 plot_scores_matrix <- function(scores, n_comp = min(4, ncol(scores)),
                                col = 1, var = NULL, main = NULL, pch = 16,
@@ -92,6 +98,11 @@ plot_scores_matrix <- function(scores, n_comp = min(4, ncol(scores)),
 #' @param cex point size.
 #' @param main title.
 #' @return Invisibly, the rotation matrix used.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 200, r = 1, height = 0.5)
+#' plot_sphere(X, col = hcl.colors(200, "Spectral")[rank(attr(X, "theta"))],
+#'             view = c(0, 0, 1))
 #' @export
 plot_sphere <- function(x, col = 1, view = c(1, 1, 1), lines = NULL,
                         lines_col = 1, lwd = 2, add = FALSE, cex = 0.5,
@@ -151,5 +162,30 @@ plot_sphere <- function(x, col = 1, view = c(1, 1, 1), lines = NULL,
 
   }
   invisible(R)
+
+}
+
+
+#' @title Plot method for SP-PCA fits
+#'
+#' @description Scores scatterplot matrix of an \code{"sppca"} fit in the
+#' OODA style (see \code{\link{plot_scores_matrix}}), with the percentages
+#' of variance explained on the scaled hypersphere in the diagonal labels.
+#'
+#' @param x an \code{"sppca"} object.
+#' @param n_comp number of components to display.
+#' @param ... further arguments passed to \code{\link{plot_scores_matrix}}
+#' (e.g., \code{col}).
+#' @return Nothing; produces a plot.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 150, r = 4, sigma = 0.05)
+#' fit <- sppca(X, d = rep(2, 4), p = 4)
+#' col <- hcl.colors(150, "Spectral")[rank(attr(X, "theta"))]
+#' plot(fit, n_comp = 3, col = col)
+#' @export
+plot.sppca <- function(x, n_comp = min(4, ncol(x$scores)), ...) {
+
+  plot_scores_matrix(x$scores, n_comp = n_comp, var = x$var_sphere, ...)
 
 }

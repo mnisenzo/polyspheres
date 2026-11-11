@@ -11,22 +11,34 @@ residual_scores(S, X, d, Q = 5, deg = 1, h_grid = 10^seq(-0.7, 0.5, l = 13))
 
 \item{X}{matrix of size \code{c(n, sum(d) + r)} with the sample.}
 
-\item{d}{vector of dimensions.}
+\item{d}{vector of size \code{r} with the dimensions of the polysphere.}
 
-\item{Q}{maximum rank.}
+\item{Q}{maximum rank. Defaults to \code{5}.}
 
-\item{deg}{degree of the local fit, \code{0} or \code{1}.}
+\item{deg}{degree of the local fit, \code{0} or \code{1}. Defaults to
+\code{1}.}
 
 \item{h_grid}{grid of bandwidth multipliers.}
 }
 \value{
-A vector of size \code{Q + 1} with attribute \code{"h"}.
+A vector of size \code{Q + 1} with attribute \code{"h"}, the
+selected bandwidth multipliers.
 }
 \description{
 For \eqn{q = 0, \ldots, Q}, computes the leave-one-out
 residual sum of squared polyspherical distances
-\eqn{\sum_i \delta^2\{\boldsymbol{x}_i, \hat m_{-i}(\boldsymbol{\xi}_i^{(q)})\}}
+\deqn{\sum_{i = 1}^n \delta^2\{\boldsymbol{x}_i,
+\hat m_{-i}(\boldsymbol{\xi}_i^{(q)})\}}
 of \code{\link{ll_scores_polysph}}, with the bandwidth multiplier chosen
 to minimize it over \code{h_grid}. Rank \eqn{q = 0} uses the extrinsic
-mean.
+mean. One minus the ratio to the \eqn{q = 0} value is the leave-one-out
+explained variance \eqn{\mathrm{EV}(q)}, which compares the scores of
+different methods with a common inversion.
+}
+\examples{
+set.seed(1)
+X <- r_circles_polysph(n = 80, r = 3)
+tp <- tangent_pca(X, d = rep(2, 3))
+res <- residual_scores(tp$scores, X, d = rep(2, 3), Q = 2)
+1 - res / res[1]
 }

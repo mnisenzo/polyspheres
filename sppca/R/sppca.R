@@ -50,7 +50,7 @@
 #' plot(fit$scores[, 1:2], col = rainbow(150), pch = 16)
 #' @export
 sppca <- function(X, d, p = NULL, rho = NULL, n_landmarks = NULL,
-                  landmarks = c("ward", "kmeans", "random", "all"),
+                  landmarks = c("auto", "ward", "kmeans", "random", "all"),
                   sphere_type = "small", h = NULL, maxit = 500) {
 
   landmarks <- match.arg(landmarks)
@@ -63,8 +63,15 @@ sppca <- function(X, d, p = NULL, rho = NULL, n_landmarks = NULL,
 
   # Nesting
   t0 <- proc.time()[[3]]
-  pns <- quiet(shapes::pns(t(smds$Y), sphere.type = sphere_type,
-                           output = FALSE))
+  pns <- if (sphere_type %in% c("small", "great")) {
+
+    pns_fit(smds$Y, sphere_type = sphere_type)
+
+  } else {
+
+    quiet(shapes::pns(t(smds$Y), sphere.type = sphere_type, output = FALSE))
+
+  }
   t_pns <- proc.time()[[3]] - t0
   scores <- smds$rho * t(pns$resmat)
   colnames(scores) <- paste0("PC", seq_len(ncol(scores)))
@@ -113,6 +120,12 @@ print.sppca <- function(x, ...) {
 #' @param scores matrix of size \code{c(m, q)} with \code{q <= p} scores;
 #' remaining scores are set to zero.
 #' @return A matrix of size \code{c(m, p + 1)}.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 100, r = 3)
+#' fit <- sppca(X, d = rep(2, 3), p = 3)
+#' # The PNS mean on the scaled hypersphere
+#' scores_to_sph(fit, scores = 0)
 #' @export
 scores_to_sph <- function(fit, scores) {
 
@@ -130,8 +143,11 @@ scores_to_sph <- function(fit, scores) {
 #' @description \code{mode_sppca} returns the \eqn{j}-th mode of variation
 #' evaluated at scores \code{t}, either by inverting the PNS principal
 #' curve through \code{\link{nw_sph_polysph}} (\code{method = "curve"}) or
-#' by local linear regression of the sample on its \eqn{j}-th scores
-#' (\code{method = "regression"}, see \code{\link{mode_polysph}}).
+#' by local linear regression of the sample on its scores
+#' (\code{method = "regression"}): the estimated conditional extrinsic mean
+#' \eqn{E[\boldsymbol{X} \mid \xi_1 = \cdots = \xi_{j-1} = 0, \xi_j = t]},
+#' that is, the \eqn{j}-th mode through the center of the earlier ones (see
+#' \code{\link{mode_polysph}} and \code{\link{ll_scores_polysph}}).
 #' \code{reconstruct_sppca} returns the rank-\eqn{q} reconstruction of the
 #' sample, obtained by zeroing the scores beyond the \eqn{q}-th and
 #' inverting. \code{residual_sppca} gives the residual sum of squared
@@ -146,6 +162,15 @@ scores_to_sph <- function(fit, scores) {
 #' @param Q maximum rank in \code{residual_sppca}.
 #' @return Matrices with points on the polysphere (\code{mode_sppca},
 #' \code{reconstruct_sppca}) or a vector of residuals.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 150, r = 3, theta_range = c(0, 1.5 * pi))
+#' d <- rep(2, 3)
+#' fit <- sppca(X, d = d, p = 4)
+#' m1 <- mode_sppca(fit, j = 1, method = "regression")
+#' dim(m1)
+#' # Residuals of the rank-q reconstructions, q = 0, 1, 2
+#' residual_sppca(fit, Q = 2)
 #' @name sppca_modes
 NULL
 
@@ -172,8 +197,26 @@ mode_sppca <- function(fit, j = 1, t = NULL,
 
   } else {
 
-    out <- mode_polysph(t = t, scores = fit$scores[, j], X = fit$X,
-                        d = fit$d)
+    if (j == 1) {
+
+      out <- mode_polysph(t = t, scores = fit$scores[, 1], X = fit$X,
+                          d = fit$d)
+
+    } else {
+
+      # Condition on the first j scores, with the first j - 1 at zero:
+      # E[X | xi_1 = ... = xi_{j-1} = 0, xi_j = t]
+      S <- fit$scores[, seq_len(j), drop = FALSE]
+      h_grid <- 10^seq(-0.7, 0.5, l = 13)
+      cv <- vapply(h_grid, function(h) {
+        f <- ll_scores_polysph(S, S, fit$X, d = fit$d, h = h, loo = TRUE)
+        sum(dist_polysph_pair(f, fit$X, d = fit$d, squared = TRUE))
+      }, numeric(1))
+      s_eval <- cbind(matrix(0, nrow = length(t), ncol = j - 1), t)
+      out <- ll_scores_polysph(s_eval, S, fit$X, d = fit$d,
+                               h = h_grid[which.min(cv)])
+
+    }
 
   }
   attr(out, "t") <- t
@@ -228,12 +271,17 @@ quiet <- function(expr) {
 #' @description Projects new polyspherical observations onto a fitted
 #' SP-PCA: out-of-sample scaled MDS through the landmarks (spherical Gower
 #' interpolation refined by L-BFGS), followed by projection onto the
-#' fitted nested spheres (\code{shapes:::PNSs2e}).
+#' fitted nested spheres (\code{\link{pns_s2e}}).
 #'
 #' @param object an \code{"sppca"} object.
 #' @param newdata matrix of size \code{c(m, sum(d) + r)}.
 #' @param ... ignored.
 #' @return A matrix of size \code{c(m, p)} with scores.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 120, r = 3)
+#' fit <- sppca(X[1:100, ], d = rep(2, 3), p = 3)
+#' predict(fit, newdata = X[101:120, ])[, 1:2]
 #' @export
 predict.sppca <- function(object, newdata, ...) {
 
@@ -242,23 +290,10 @@ predict.sppca <- function(object, newdata, ...) {
   lm <- object$smds$landmarks
   rho <- object$smds$rho
   p <- object$smds$p
+  # Out-of-sample scaled MDS through the landmarks, then PNS projection
   Delta <- dist_polysph_cross(Xn, lm$Z, d = d)
-  Y0 <- cos(pmin(Delta / rho, pi)) %*% lm$T %*%
-    solve(crossprod(lm$T) + 1e-10 * diag(p + 1))
-  Y0 <- Y0 / sqrt(rowSums(Y0^2))
-  env <- new.env()
-  fn <- function(y) {
-    st <- stress_sph(Y = matrix(y, nrow = nrow(Xn)), U = lm$T, Delta = Delta,
-                     rho = rho)
-    assign("gr", c(st$gradient), envir = env)
-    st$value
-  }
-  gr <- function(y) get("gr", envir = env)
-  opt <- optim(par = c(Y0), fn = fn, gr = gr, method = "L-BFGS-B",
-               control = list(maxit = 500, factr = 1e5))
-  Y <- matrix(opt$par, nrow = nrow(Xn))
-  Y <- Y / sqrt(rowSums(Y^2))
-  sc <- rho * t(shapes:::PNSs2e(t(Y), object$pns$PNS))
+  Y <- oos_smds(Delta = Delta, T = lm$T, rho = rho)
+  sc <- rho * t(pns_s2e(Y, object$pns$PNS))
   colnames(sc) <- colnames(object$scores)
   return(sc)
 

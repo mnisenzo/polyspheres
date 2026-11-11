@@ -9,11 +9,12 @@ for (f in c("auxiliary.R", "angles.R", "clust_centers.R", "efficient_mds.R")) {
   src <- src[!grepl("^\\s*library\\(", src)]
   eval(parse(text = src), envir = old)
 }
+pdf(NULL, width = 40, height = 40)  # the old code draws a pairs() plot
 devtools::load_all("sppca",
                    quiet = TRUE)
 
 res <- NULL
-for (n in c(200, 400, 800, 1600)) {
+for (n in c(200, 400, 800, 1600, 3200)) {
   for (rep in 1:3) {
     set.seed(rep * 100 + n)
     X <- r_circles_polysph(n = n, r = 4, sigma = 0.1)

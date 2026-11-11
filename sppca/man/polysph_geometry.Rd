@@ -29,47 +29,57 @@ exp_polysph(v, mu, d)
 \item{d}{vector of size \code{r} with the dimensions of the spheres.}
 
 \item{x, y}{matrices of size \code{c(nx, sum(d) + r)} and
-\code{c(ny, sum(d) + r)} with points on the polysphere (rows).}
+\code{c(ny, sum(d) + r)} with points on the polysphere as rows. Vectors
+are interpreted as a single point.}
 
 \item{squared}{return squared distances? Defaults to \code{FALSE}.}
 
-\item{w}{optional vector of weights of length \code{nrow(x)}.}
+\item{w}{optional vector of weights of length \code{nrow(x)}. Defaults to
+equal weights.}
 
 \item{mu}{a vector of size \code{sum(d) + r} with a point on the
-polysphere (base point of the tangent space).}
+polysphere, the base point of the tangent space.}
 
 \item{v}{a matrix of size \code{c(nv, sum(d) + r)} with tangent vectors at
 \code{mu}.}
 }
 \value{
 \itemize{
-  \item \code{block_ind}: a list of length \code{r} with column indexes.
-  \item \code{proj_polysph}: the projection of \code{x}.
-  \item \code{dist_polysph_cross}: a matrix of size \code{c(nx, ny)}.
-  \item \code{dist_polysph_pair}: a vector of size \code{nx} with
-  rowwise distances.
+  \item \code{block_ind}: a list of length \code{r} with the column
+  indexes of each sphere.
+  \item \code{proj_polysph}: the projection of \code{x} onto the
+  polysphere.
+  \item \code{dist_polysph_cross}: a matrix of size \code{c(nx, ny)} with
+  the distances between the rows of \code{x} and \code{y}.
+  \item \code{dist_polysph_pair}: a vector of size \code{nx} with the
+  rowwise distances between \code{x} and \code{y}.
   \item \code{mean_polysph}: the (weighted) extrinsic mean.
-  \item \code{log_polysph}, \code{exp_polysph}: tangent vectors and
-  points on the polysphere.
+  \item \code{log_polysph}, \code{exp_polysph}: tangent vectors at
+  \code{mu} and points on the polysphere.
 }
 }
 \description{
 Basic operations on the polysphere
 \eqn{\mathcal{S}^{d_1,\ldots,d_r} := \mathcal{S}^{d_1} \times \cdots
 \times \mathcal{S}^{d_r} \subset \mathbb{R}^{d_1 + \cdots + d_r + r}}:
-block indexes, projection, geodesic product distances, extrinsic means,
-and exponential/logarithmic maps.
+block indexes, projection, product geodesic distances, extrinsic means,
+and exponential and logarithmic maps.
 }
 \details{
-The product distance is
-\eqn{\delta(\boldsymbol{x}, \boldsymbol{y}) = \{\sum_{j = 1}^r
-\arccos^2(\boldsymbol{x}_j'\boldsymbol{y}_j)\}^{1/2}}. All operations are
-vectorized over blocks with \code{tcrossprod}, so the cost of
-\code{dist_polysph_cross} is \eqn{O(n_x n_y (d_1 + \cdots + d_r + r))}.
+The product geodesic distance is
+\deqn{\delta(\boldsymbol{x}, \boldsymbol{y}) = \Big\{\sum_{j = 1}^r
+\arccos^2(\boldsymbol{x}_j'\boldsymbol{y}_j)\Big\}^{1/2}.}
+Rowwise blockwise sums are computed with a single product against the
+\eqn{(d_1 + \cdots + d_r + r) \times r} block-indicator matrix, so
+\code{proj_polysph} and \code{dist_polysph_pair} have no loops over the
+spheres. \code{dist_polysph_cross} costs \eqn{O(n_x n_y (d_1 + \cdots +
+d_r + r))} through one \code{tcrossprod} per sphere.
 }
 \examples{
 d <- c(2, 2)
 x <- polykde::r_unif_polysph(n = 5, d = d)
 D <- dist_polysph_cross(x, x, d = d)
 max(abs(D - t(D)))
+all.equal(diag(dist_polysph_cross(x, x[5:1, ], d = d)),
+          dist_polysph_pair(x, x[5:1, ], d = d))
 }

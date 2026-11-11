@@ -4,39 +4,49 @@
 #' @description Basic operations on the polysphere
 #' \eqn{\mathcal{S}^{d_1,\ldots,d_r} := \mathcal{S}^{d_1} \times \cdots
 #' \times \mathcal{S}^{d_r} \subset \mathbb{R}^{d_1 + \cdots + d_r + r}}:
-#' block indexes, projection, geodesic product distances, extrinsic means,
-#' and exponential/logarithmic maps.
+#' block indexes, projection, product geodesic distances, extrinsic means,
+#' and exponential and logarithmic maps.
 #'
 #' @param x,y matrices of size \code{c(nx, sum(d) + r)} and
-#' \code{c(ny, sum(d) + r)} with points on the polysphere (rows).
+#' \code{c(ny, sum(d) + r)} with points on the polysphere as rows. Vectors
+#' are interpreted as a single point.
 #' @param d vector of size \code{r} with the dimensions of the spheres.
-#' @param w optional vector of weights of length \code{nrow(x)}.
+#' @param w optional vector of weights of length \code{nrow(x)}. Defaults to
+#' equal weights.
 #' @param mu a vector of size \code{sum(d) + r} with a point on the
-#' polysphere (base point of the tangent space).
+#' polysphere, the base point of the tangent space.
 #' @param v a matrix of size \code{c(nv, sum(d) + r)} with tangent vectors at
 #' \code{mu}.
 #' @param squared return squared distances? Defaults to \code{FALSE}.
 #' @return
 #' \itemize{
-#'   \item \code{block_ind}: a list of length \code{r} with column indexes.
-#'   \item \code{proj_polysph}: the projection of \code{x}.
-#'   \item \code{dist_polysph_cross}: a matrix of size \code{c(nx, ny)}.
-#'   \item \code{dist_polysph_pair}: a vector of size \code{nx} with
-#'   rowwise distances.
+#'   \item \code{block_ind}: a list of length \code{r} with the column
+#'   indexes of each sphere.
+#'   \item \code{proj_polysph}: the projection of \code{x} onto the
+#'   polysphere.
+#'   \item \code{dist_polysph_cross}: a matrix of size \code{c(nx, ny)} with
+#'   the distances between the rows of \code{x} and \code{y}.
+#'   \item \code{dist_polysph_pair}: a vector of size \code{nx} with the
+#'   rowwise distances between \code{x} and \code{y}.
 #'   \item \code{mean_polysph}: the (weighted) extrinsic mean.
-#'   \item \code{log_polysph}, \code{exp_polysph}: tangent vectors and
-#'   points on the polysphere.
+#'   \item \code{log_polysph}, \code{exp_polysph}: tangent vectors at
+#'   \code{mu} and points on the polysphere.
 #' }
-#' @details The product distance is
-#' \eqn{\delta(\boldsymbol{x}, \boldsymbol{y}) = \{\sum_{j = 1}^r
-#' \arccos^2(\boldsymbol{x}_j'\boldsymbol{y}_j)\}^{1/2}}. All operations are
-#' vectorized over blocks with \code{tcrossprod}, so the cost of
-#' \code{dist_polysph_cross} is \eqn{O(n_x n_y (d_1 + \cdots + d_r + r))}.
+#' @details The product geodesic distance is
+#' \deqn{\delta(\boldsymbol{x}, \boldsymbol{y}) = \Big\{\sum_{j = 1}^r
+#' \arccos^2(\boldsymbol{x}_j'\boldsymbol{y}_j)\Big\}^{1/2}.}
+#' Rowwise blockwise sums are computed with a single product against the
+#' \eqn{(d_1 + \cdots + d_r + r) \times r} block-indicator matrix, so
+#' \code{proj_polysph} and \code{dist_polysph_pair} have no loops over the
+#' spheres. \code{dist_polysph_cross} costs \eqn{O(n_x n_y (d_1 + \cdots +
+#' d_r + r))} through one \code{tcrossprod} per sphere.
 #' @examples
 #' d <- c(2, 2)
 #' x <- polykde::r_unif_polysph(n = 5, d = d)
 #' D <- dist_polysph_cross(x, x, d = d)
 #' max(abs(D - t(D)))
+#' all.equal(diag(dist_polysph_cross(x, x[5:1, ], d = d)),
+#'           dist_polysph_pair(x, x[5:1, ], d = d))
 #' @name polysph_geometry
 NULL
 
@@ -52,19 +62,57 @@ block_ind <- function(d) {
 }
 
 
+#' @title Block-indicator matrix
+#'
+#' @description Matrix \eqn{\boldsymbol{B}} of size
+#' \code{c(sum(d) + r, r)} with \eqn{B_{kj} = 1} if column \eqn{k} belongs to
+#' the \eqn{j}-th sphere, so that \code{(x * x) \%*\% B} gives the blockwise
+#' squared norms of the rows of \code{x}.
+#'
+#' @inheritParams polysph_geometry
+#' @return A numeric matrix.
+#' @keywords internal
+block_mat <- function(d) {
+
+  B <- matrix(0, nrow = sum(d + 1), ncol = length(d))
+  B[cbind(seq_len(sum(d + 1)), rep(seq_along(d), d + 1))] <- 1
+  return(B)
+
+}
+
+
+#' @title Clamp to \eqn{[-1, 1]}
+#'
+#' @description In-place clamp used before \code{acos}, cheaper than
+#' \code{pmin(pmax(x, -1), 1)}.
+#'
+#' @param x a numeric vector or matrix.
+#' @return \code{x} with its entries clamped to \eqn{[-1, 1]}.
+#' @keywords internal
+clamp1 <- function(x) {
+
+  x[x > 1] <- 1
+  x[x < -1] <- -1
+  return(x)
+
+}
+
+
 #' @rdname polysph_geometry
 #' @export
 proj_polysph <- function(x, d) {
 
-  x <- rbind(x)
-  for (ind in block_ind(d)) {
+  if (!is.matrix(x)) {
 
-    nrm <- sqrt(rowSums(x[, ind, drop = FALSE]^2))
-    nrm[nrm == 0] <- 1
-    x[, ind] <- x[, ind, drop = FALSE] / nrm
+    x <- rbind(x)
 
   }
-  return(x)
+
+  # Blockwise norms, expanded back to the columns of x
+  blk <- rep(seq_along(d), d + 1)
+  nrm <- sqrt((x * x) %*% block_mat(d))
+  nrm[nrm == 0] <- 1
+  return(x / nrm[, blk, drop = FALSE])
 
 }
 
@@ -73,13 +121,15 @@ proj_polysph <- function(x, d) {
 #' @export
 dist_polysph_cross <- function(x, y, d, squared = FALSE) {
 
-  x <- rbind(x)
-  y <- rbind(y)
-  D2 <- matrix(0, nrow = nrow(x), ncol = nrow(y))
+  if (!is.matrix(x)) x <- rbind(x)
+  if (!is.matrix(y)) y <- rbind(y)
+
+  # Sum of squared angles over the spheres
+  D2 <- 0
   for (ind in block_ind(d)) {
 
-    cp <- tcrossprod(x[, ind, drop = FALSE], y[, ind, drop = FALSE])
-    D2 <- D2 + acos(pmin(pmax(cp, -1), 1))^2
+    D2 <- D2 + acos(clamp1(tcrossprod(x[, ind, drop = FALSE],
+                                      y[, ind, drop = FALSE])))^2
 
   }
   if (squared) {
@@ -99,16 +149,16 @@ dist_polysph_cross <- function(x, y, d, squared = FALSE) {
 #' @export
 dist_polysph_pair <- function(x, y, d, squared = FALSE) {
 
-  x <- rbind(x)
-  y <- rbind(y)
-  stopifnot(nrow(x) == nrow(y))
-  D2 <- 0
-  for (ind in block_ind(d)) {
+  if (!is.matrix(x)) x <- rbind(x)
+  if (!is.matrix(y)) y <- rbind(y)
+  if (nrow(x) != nrow(y)) {
 
-    cp <- rowSums(x[, ind, drop = FALSE] * y[, ind, drop = FALSE])
-    D2 <- D2 + acos(pmin(pmax(cp, -1), 1))^2
+    stop("x and y must have the same number of rows.")
 
   }
+
+  # Blockwise inner products in one product, then squared angles
+  D2 <- rowSums(acos(clamp1((x * y) %*% block_mat(d)))^2)
   if (squared) {
 
     return(D2)
@@ -126,7 +176,7 @@ dist_polysph_pair <- function(x, y, d, squared = FALSE) {
 #' @export
 mean_polysph <- function(x, d, w = NULL) {
 
-  x <- rbind(x)
+  if (!is.matrix(x)) x <- rbind(x)
   if (is.null(w)) {
 
     w <- rep(1 / nrow(x), nrow(x))
@@ -141,20 +191,19 @@ mean_polysph <- function(x, d, w = NULL) {
 #' @export
 log_polysph <- function(x, mu, d) {
 
-  x <- rbind(x)
-  v <- x
-  for (ind in block_ind(d)) {
+  if (!is.matrix(x)) x <- rbind(x)
+  B <- block_mat(d)
+  blk <- rep(seq_along(d), d + 1)
 
-    m <- mu[ind]
-    cp <- pmin(pmax(drop(x[, ind, drop = FALSE] %*% m), -1), 1)
-    th <- acos(cp)
-    u <- x[, ind, drop = FALSE] - outer(cp, m)
-    nu <- sqrt(rowSums(u^2))
-    fac <- ifelse(nu > 1e-12, th / nu, 1)
-    v[, ind] <- u * fac
+  # Blockwise cosines with mu and the corresponding angles
+  cp <- clamp1((x * rep_rows(mu, nrow(x))) %*% B)
+  th <- acos(cp)
 
-  }
-  return(v)
+  # Component of x orthogonal to mu, rescaled to have norm equal to the angle
+  u <- x - cp[, blk, drop = FALSE] * rep_rows(mu, nrow(x))
+  nu <- sqrt((u * u) %*% B)
+  fac <- ifelse(nu > 1e-12, th / nu, 1)
+  return(u * fac[, blk, drop = FALSE])
 
 }
 
@@ -163,18 +212,18 @@ log_polysph <- function(x, mu, d) {
 #' @export
 exp_polysph <- function(v, mu, d) {
 
-  v <- rbind(v)
-  x <- v
-  for (ind in block_ind(d)) {
+  if (!is.matrix(v)) v <- rbind(v)
+  B <- block_mat(d)
+  blk <- rep(seq_along(d), d + 1)
+  M <- rep_rows(mu, nrow(v))
 
-    vv <- v[, ind, drop = FALSE]
-    # Remove any normal component (numerical safety)
-    vv <- vv - outer(drop(vv %*% mu[ind]), mu[ind])
-    nv <- sqrt(rowSums(vv^2))
-    fac <- ifelse(nv > 1e-12, sin(nv) / nv, 1)
-    x[, ind] <- outer(cos(nv), mu[ind]) + vv * fac
+  # Remove any normal component (numerical safety)
+  v <- v - ((v * M) %*% B)[, blk, drop = FALSE] * M
 
-  }
+  # Blockwise exponential map
+  nv <- sqrt((v * v) %*% B)
+  fac <- ifelse(nv > 1e-12, sin(nv) / nv, 1)
+  x <- cos(nv)[, blk, drop = FALSE] * M + v * fac[, blk, drop = FALSE]
   return(proj_polysph(x, d = d))
 
 }
@@ -190,8 +239,36 @@ exp_polysph <- function(v, mu, d) {
 #' @keywords internal
 dist_sph_cross <- function(x, y) {
 
-  x <- rbind(x) / sqrt(rowSums(rbind(x)^2))
-  y <- rbind(y) / sqrt(rowSums(rbind(y)^2))
-  return(acos(pmin(pmax(tcrossprod(x, y), -1), 1)))
+  if (!is.matrix(x)) x <- rbind(x)
+  if (!is.matrix(y)) y <- rbind(y)
+  x <- x / sqrt(rowSums(x * x))
+  y <- y / sqrt(rowSums(y * y))
+  return(acos(clamp1(tcrossprod(x, y))))
+
+}
+
+
+#' @title Internal helpers
+#'
+#' @description \code{row_min} returns the rowwise minima of a matrix using
+#' the C-level \code{\link[base]{max.col}} (much faster than
+#' \code{apply(M, 1, min)}); \code{rep_rows} stacks a vector \code{m} times.
+#'
+#' @param M a numeric matrix.
+#' @param v a vector.
+#' @param m number of rows.
+#' @keywords internal
+row_min <- function(M) {
+
+  M[cbind(seq_len(nrow(M)), max.col(-M, ties.method = "first"))]
+
+}
+
+
+#' @rdname row_min
+#' @keywords internal
+rep_rows <- function(v, m) {
+
+  matrix(v, nrow = m, ncol = length(v), byrow = TRUE)
 
 }

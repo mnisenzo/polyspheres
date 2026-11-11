@@ -10,8 +10,9 @@ smds_polysph(
   p = NULL,
   rho = NULL,
   n_landmarks = NULL,
-  landmarks = c("ward", "kmeans", "random", "all"),
+  landmarks = c("auto", "ward", "kmeans", "random", "all"),
   maxit = 500,
+  tol = 1e-08,
   refine = TRUE
 )
 }
@@ -26,12 +27,20 @@ smds_polysph(
 \item{rho}{radius of the target sphere. If \code{NULL} (default), it is
 estimated.}
 
-\item{n_landmarks}{number of landmarks \eqn{\ell}.}
+\item{n_landmarks}{number of landmarks \eqn{\ell}. For
+\code{smds_polysph}, defaults to \code{min(n, max(50, min(300, n / 5)))}.}
 
 \item{landmarks}{landmark selection method, see
-\code{\link{landmarks_polysph}}.}
+\code{\link{landmarks_polysph}}. The default, \code{"auto"}, uses Ward
+clustering for \code{n <= 1000} and \eqn{k}-means otherwise.}
 
-\item{maxit}{maximum number of L-BFGS iterations for each step.}
+\item{maxit}{maximum number of L-BFGS iterations for each step. Defaults
+to \code{500}.}
+
+\item{tol}{relative reduction of the stress below which the L-BFGS
+iterations of the landmark step stop (passed as
+\code{factr = tol / .Machine$double.eps} to
+\code{\link[stats]{optim}}). Defaults to \code{1e-8}.}
 
 \item{refine}{refine the Gower initialization of step (2)? Defaults to
 \code{TRUE}.}
@@ -62,8 +71,11 @@ jointly); (2) out-of-sample placement of all observations given the
 landmark images. Step (2) is initialized by a closed-form spherical
 analogue of Gower's interpolation,
 \eqn{\boldsymbol{y}_i \propto (\boldsymbol{T}'\boldsymbol{T})^{-1}
-\boldsymbol{T}' \cos(\boldsymbol{\delta}_i / \rho)}, and refined
-jointly for all observations by L-BFGS with analytic gradients.
+\boldsymbol{T}' \cos(\boldsymbol{\delta}_i / \rho)}, and refined by
+pointwise Levenberg--Marquardt iterations vectorized over the
+observations (see \code{\link{oos_smds}}). Step (1) uses L-BFGS-B with
+analytic gradients and the radius profiled out in closed form, from a
+spherical classical-MDS initialization.
 }
 \examples{
 X <- polykde::r_path_s2r(n = 200, r = 4, sigma = 0.1)

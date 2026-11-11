@@ -35,8 +35,11 @@ Matrices with points on the polysphere (\code{mode_sppca},
 \code{mode_sppca} returns the \eqn{j}-th mode of variation
 evaluated at scores \code{t}, either by inverting the PNS principal
 curve through \code{\link{nw_sph_polysph}} (\code{method = "curve"}) or
-by local linear regression of the sample on its \eqn{j}-th scores
-(\code{method = "regression"}, see \code{\link{mode_polysph}}).
+by local linear regression of the sample on its scores
+(\code{method = "regression"}): the estimated conditional extrinsic mean
+\eqn{E[\boldsymbol{X} \mid \xi_1 = \cdots = \xi_{j-1} = 0, \xi_j = t]},
+that is, the \eqn{j}-th mode through the center of the earlier ones (see
+\code{\link{mode_polysph}} and \code{\link{ll_scores_polysph}}).
 \code{reconstruct_sppca} returns the rank-\eqn{q} reconstruction of the
 sample, obtained by zeroing the scores beyond the \eqn{q}-th and
 inverting. \code{residual_sppca} gives the residual sum of squared

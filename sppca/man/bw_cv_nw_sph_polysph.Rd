@@ -5,7 +5,16 @@
 \title{Leave-one-out cross-validation bandwidth for
 \code{nw_sph_polysph}}
 \usage{
-bw_cv_nw_sph_polysph(Y, X, d, rho = 1, h_range = NULL, plot_cv = FALSE)
+bw_cv_nw_sph_polysph(
+  Y,
+  X,
+  d,
+  rho = 1,
+  h_range = NULL,
+  n_grid = 15,
+  n_cv = 1000,
+  plot_cv = FALSE
+)
 }
 \arguments{
 \item{Y}{matrix of size \code{c(n, p + 1)} with the hyperspherical
@@ -13,25 +22,49 @@ images of the sample.}
 
 \item{X}{matrix of size \code{c(n, sum(d) + r)} with the sample.}
 
-\item{d}{vector of dimensions of the polysphere.}
+\item{d}{vector of size \code{r} with the dimensions of the polysphere.}
 
-\item{rho}{radius of \eqn{\mathcal{S}^p} (distances are scaled by it).}
+\item{rho}{radius of \eqn{\mathcal{S}^p}. Defaults to \code{1}.}
 
-\item{h_range}{range of bandwidths (in the units of
-\eqn{\rho\arccos}) for the search. Defaults to
-\code{c(q01, max)} of the pairwise distances.}
+\item{h_range}{range of bandwidths for the search. Defaults to the
+\code{0.01} quantile and the maximum of the scaled pairwise distances.}
 
-\item{plot_cv}{plot the CV curve?}
+\item{n_grid}{size of the logarithmic grid used to bracket the minimum,
+which is then refined by \code{\link[stats]{optimize}}. Defaults to
+\code{15}.}
+
+\item{n_cv}{maximum number of observations at which the leave-one-out
+loss is evaluated. If \code{n > n_cv}, a random subsample of size
+\code{n_cv} is used (each fit still uses all the other observations),
+which gives an unbiased estimate of the CV criterion at cost
+\eqn{O(n_{\mathrm{cv}} n)}. Defaults to \code{1000}.}
+
+\item{plot_cv}{plot the CV curve? Defaults to \code{FALSE}.}
 }
 \value{
-A list with \code{h} (CV bandwidth) and \code{cv} (the CV curve
-on a log-grid).
+A list with \code{h} (the CV bandwidth) and \code{cv} (a matrix
+with the CV curve on the grid).
 }
 \description{
 Minimizes
 \deqn{\mathrm{CV}(h) = \sum_{i = 1}^n \delta^2\{\hat m_{-i, h}
-(\boldsymbol{y}_i), \boldsymbol{x}_i\}.}
-The leave-one-out fits are obtained in closed form by zeroing the
-diagonal of the kernel matrix before normalizing the weights (no refits),
-so each evaluation costs \eqn{O(n^2 (d_1 + \cdots + d_r + r))}.
+(\boldsymbol{y}_i), \boldsymbol{x}_i\},}
+where \eqn{\hat m_{-i, h}} is \code{\link{nw_sph_polysph}} computed
+without the \eqn{i}-th pair.
+}
+\details{
+Since the weights are normalized, the leave-one-out weights are
+obtained by setting the diagonal of the kernel matrix to zero before the
+normalization, \eqn{W_{-i, j, h} = W_{j, h}(\boldsymbol{y}_i) /
+\{1 - W_{i, h}(\boldsymbol{y}_i)\}}, so no refitting is needed. The
+rowwise shifts that stabilize the weights do not depend on \eqn{h} and are
+computed once. Each evaluation of \eqn{\mathrm{CV}(h)} costs one
+\eqn{n \times n} by \eqn{n \times (d_1 + \cdots + d_r + r)} matrix product.
+}
+\examples{
+set.seed(1)
+X <- r_circles_polysph(n = 60, r = 2)
+th <- attr(X, "theta")
+Y <- cbind(cos(th), sin(th))
+bw_cv_nw_sph_polysph(Y = Y, X = X, d = c(2, 2))$h
 }

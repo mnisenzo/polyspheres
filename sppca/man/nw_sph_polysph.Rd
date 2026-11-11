@@ -14,14 +14,15 @@ images of the sample.}
 
 \item{X}{matrix of size \code{c(n, sum(d) + r)} with the sample.}
 
-\item{d}{vector of dimensions of the polysphere.}
+\item{d}{vector of size \code{r} with the dimensions of the polysphere.}
 
-\item{h}{bandwidth.}
+\item{h}{bandwidth, in the units of \eqn{\rho \arccos}.}
 
-\item{rho}{radius of \eqn{\mathcal{S}^p} (distances are scaled by it).}
+\item{rho}{radius of \eqn{\mathcal{S}^p}. Defaults to \code{1}.}
 }
 \value{
-A matrix of size \code{c(m, sum(d) + r)}.
+A matrix of size \code{c(m, sum(d) + r)} with points on the
+polysphere.
 }
 \description{
 Kernel interpolator \eqn{\hat m_h: \mathcal{S}^p \to
@@ -31,6 +32,20 @@ Kernel interpolator \eqn{\hat m_h: \mathcal{S}^p \to
 W_{i, h}(\boldsymbol{y}) \boldsymbol{x}_i\Big), \quad
 W_{i, h}(\boldsymbol{y}) \propto K\{\rho \arccos(\boldsymbol{y}'
 \boldsymbol{y}_i) / h\},}
-that is, a weighted extrinsic mean with intrinsic weights, with Gaussian
-kernel \eqn{K}.
+that is, a weighted extrinsic mean with intrinsic weights, for the
+Gaussian kernel \eqn{K(t) = e^{-t^2 / 2}}.
+}
+\details{
+The weights are computed in the log scale and shifted by their
+rowwise maxima before exponentiation, so the estimator is well defined
+for arbitrarily small bandwidths (it then tends to the nearest-neighbor
+interpolator).
+}
+\examples{
+set.seed(1)
+X <- r_circles_polysph(n = 50, r = 2)
+th <- attr(X, "theta")
+Y <- cbind(cos(th), sin(th))
+y <- cbind(cos(c(0, pi)), sin(c(0, pi)))
+nw_sph_polysph(y = y, Y = Y, X = X, d = c(2, 2), h = 0.2)
 }

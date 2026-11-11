@@ -13,28 +13,55 @@ ll_scores_polysph(s, S, X, d, h, deg = 1, loo = FALSE, ridge = 1e-06)
 
 \item{X}{matrix of size \code{c(n, sum(d) + r)} with the sample.}
 
-\item{d}{vector of dimensions.}
+\item{d}{vector of size \code{r} with the dimensions of the polysphere.}
 
-\item{h}{bandwidth multiplier.}
+\item{h}{bandwidth multiplier: the bandwidth of the \eqn{k}-th score is
+\code{h * sd(S[, k])}.}
 
-\item{deg}{degree of the local fit, \code{0} or \code{1}.}
+\item{deg}{degree of the local fit, \code{0} or \code{1}. Defaults to
+\code{1}.}
 
-\item{loo}{leave-one-out fits (\code{s} must then be \code{S})?}
+\item{loo}{leave-one-out fits? If \code{TRUE}, \code{s} must be \code{S}.
+Defaults to \code{FALSE}.}
 
-\item{ridge}{ridge regularization of the local design.}
+\item{ridge}{ridge regularization of the local slopes, relative to the
+local sample size. Defaults to \code{1e-6}.}
 }
 \value{
-A matrix of size \code{c(m, sum(d) + r)}.
+A matrix of size \code{c(m, sum(d) + r)} with points on the
+polysphere.
 }
 \description{
 Estimates \eqn{\boldsymbol{s} \mapsto \mathrm{proj}\,
 E[\boldsymbol{X} \mid \boldsymbol{\xi}^{(q)} = \boldsymbol{s}]}, the
-conditional extrinsic mean of the sample given its first \eqn{q}
-principal scores, by local linear (\code{deg = 1}) or local constant
-(\code{deg = 0}) regression with a Gaussian product kernel whose
-bandwidths are \eqn{h} times the standard deviations of the scores,
-followed by projection onto the polysphere. This provides a common,
-method-agnostic inversion of the scores of any dimension-reduction
-method; with \code{loo = TRUE} the fits at the sample scores are
-leave-one-out, giving honest reconstruction errors.
+conditional extrinsic mean of a polyspherical sample given its first
+\eqn{q} principal scores, by local linear (\code{deg = 1}) or local
+constant (\code{deg = 0}) regression with a Gaussian product kernel,
+followed by projection onto the polysphere. This is a method-agnostic
+inversion of the scores of any dimension-reduction method. With
+\code{loo = TRUE}, fits at the sample scores are leave-one-out, giving
+honest reconstruction errors.
+}
+\details{
+The local linear estimator is linear in the responses,
+\eqn{\hat m(\boldsymbol{s}) = \sum_i \ell_i(\boldsymbol{s})
+\boldsymbol{x}_i}, with equivalent-kernel weights
+\eqn{\ell_i(\boldsymbol{s}) = w_i\, \boldsymbol{e}_1'\boldsymbol{M}^{-1}
+(1, \boldsymbol{z}_i')'}, where \eqn{\boldsymbol{z}_i} are the scaled
+differences, \eqn{w_i} the kernel weights, and \eqn{\boldsymbol{M}} the
+\eqn{(q + 1) \times (q + 1)} matrix of local weighted moments. The
+moments are computed for all evaluation points at once with matrix
+operations, only the small systems \eqn{\boldsymbol{M}\boldsymbol{a} =
+\boldsymbol{e}_1} are solved pointwise, and all fits follow from a single
+product \eqn{\boldsymbol{L}\boldsymbol{X}}. The cost is
+\eqn{O(m n q^2 + m n D)} instead of \eqn{O(m n q D)} for
+\eqn{D = d_1 + \cdots + d_r + r}.
+}
+\examples{
+set.seed(1)
+X <- r_circles_polysph(n = 80, r = 3)
+S <- cbind(attr(X, "theta"))
+fit <- ll_scores_polysph(s = S, S = S, X = X, d = rep(2, 3), h = 0.3,
+                         loo = TRUE)
+mean(dist_polysph_pair(fit, X, d = rep(2, 3)))
 }

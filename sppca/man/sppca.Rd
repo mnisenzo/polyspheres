@@ -10,7 +10,7 @@ sppca(
   p = NULL,
   rho = NULL,
   n_landmarks = NULL,
-  landmarks = c("ward", "kmeans", "random", "all"),
+  landmarks = c("auto", "ward", "kmeans", "random", "all"),
   sphere_type = "small",
   h = NULL,
   maxit = 500
@@ -27,10 +27,12 @@ sppca(
 \item{rho}{radius of the target sphere. If \code{NULL} (default), it is
 estimated.}
 
-\item{n_landmarks}{number of landmarks \eqn{\ell}.}
+\item{n_landmarks}{number of landmarks \eqn{\ell}. For
+\code{smds_polysph}, defaults to \code{min(n, max(50, min(300, n / 5)))}.}
 
 \item{landmarks}{landmark selection method, see
-\code{\link{landmarks_polysph}}.}
+\code{\link{landmarks_polysph}}. The default, \code{"auto"}, uses Ward
+clustering for \code{n <= 1000} and \eqn{k}-means otherwise.}
 
 \item{sphere_type}{type of subspheres fitted by PNS, see
 \code{\link[shapes]{pns}}: \code{"small"} (default), \code{"great"}, or
@@ -40,7 +42,8 @@ likelihood ratio tests; considerably slower).}
 \item{h}{bandwidth for the inversion. If \code{NULL}, chosen by
 \code{\link{bw_cv_nw_sph_polysph}}.}
 
-\item{maxit}{maximum number of L-BFGS iterations for each step.}
+\item{maxit}{maximum number of L-BFGS iterations for each step. Defaults
+to \code{500}.}
 }
 \value{
 An object of class \code{"sppca"}: a list with

@@ -17,7 +17,8 @@ landmarks_polysph(
 
 \item{d}{vector of size \code{r} with the dimensions of the spheres.}
 
-\item{n_landmarks}{number of landmarks \eqn{\ell}.}
+\item{n_landmarks}{number of landmarks \eqn{\ell}. For
+\code{smds_polysph}, defaults to \code{min(n, max(50, min(300, n / 5)))}.}
 
 \item{method}{one of \code{"ward"}, \code{"kmeans"}, \code{"random"}, or
 \code{"all"} (all the data, i.e., full scaled MDS).}

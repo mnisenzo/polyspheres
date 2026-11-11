@@ -29,6 +29,15 @@
 #' R., Damon, J. N., Huckemann, S. and Marron, J. S. (2013). Nested sphere
 #' statistics of skeletal models. In \emph{Innovations for Shape Analysis},
 #' pp. 93--115. Springer, Berlin.
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 100, r = 3)
+#' d <- rep(2, 3)
+#' tp <- tangent_pca(X, d = d)
+#' cp <- cpns(X, d = d)
+#' # Residual sum of squares of the rank-1 reconstructions
+#' sum(dist_polysph_pair(reconstruct_tangent_pca(tp, 1, d = d), X, d = d)^2)
+#' sum(dist_polysph_pair(reconstruct_cpns(cp, 1, d = d), X, d = d)^2)
 #' @name competitors
 NULL
 
@@ -204,6 +213,11 @@ reconstruct_cpns <- function(fit, q, d) {
 #' @return A matrix of size \code{c(Q + 1, length(methods))} with the
 #' residuals, with attribute \code{"total"} (the residual of the blockwise
 #' Fréchet mean) and \code{"time"} (fitting times).
+#' @examples
+#' set.seed(1)
+#' X <- r_circles_polysph(n = 100, r = 3)
+#' res <- compare_residuals(X, d = rep(2, 3), Q = 2, p = 4)
+#' 1 - res / attr(res, "total")
 #' @export
 compare_residuals <- function(X, d, Q = 5, fit_sppca = NULL,
                               methods = c("SP-PCA", "Tangent PCA",
@@ -219,7 +233,9 @@ compare_residuals <- function(X, d, Q = 5, fit_sppca = NULL,
     res[, m] <- switch(m,
       "SP-PCA" = {
         f <- if (is.null(fit_sppca)) sppca(X, d = d, ...) else fit_sppca
-        sapply(0:Q, function(q) rss(reconstruct_sppca(f, min(q, ncol(f$scores)))))
+        sapply(0:Q, function(q) {
+          rss(reconstruct_sppca(f, min(q, ncol(f$scores))))
+        })
       },
       "Tangent PCA" = {
         f <- tangent_pca(X, d = d)

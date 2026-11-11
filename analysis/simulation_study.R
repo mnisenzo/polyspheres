@@ -48,7 +48,7 @@ one_rep <- function(i, design, r) {
              stress = c(f$smds$stress[2], NA, NA), rho = c(f$smds$rho, NA, NA))
 }
 
-cl <- makeCluster(12)
+cl <- makeCluster(as.integer(Sys.getenv("SPPCA_CORES", "4")))
 clusterExport(cl, c("one_rep", "n"))
 jobs <- do.call(rbind, lapply(seq_len(nrow(settings)), function(s)
   data.frame(i = 1:M, design = settings$design[s], r = settings$r[s])))

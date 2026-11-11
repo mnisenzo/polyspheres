@@ -73,3 +73,25 @@ test_that("competitors reconstruct exactly at full rank", {
   f <- cpns(X, d = d)
   expect_equal(reconstruct_cpns(f, q = 6, d = d), X, tolerance = 1e-4)
 })
+
+test_that("pns_fit reproduces shapes::pns", {
+  set.seed(3)
+  Y <- sweep(matrix(rnorm(60 * 4), 60, 4) %*% diag(c(3, 1, 0.5, 0.2)), 2,
+             c(0, 0, 0, 4), "+")
+  Y <- Y / sqrt(rowSums(Y^2))
+  for (ty in c("small", "great")) {
+    a <- quiet(shapes::pns(t(Y), sphere.type = ty, output = FALSE))
+    b <- pns_fit(Y, sphere_type = ty)
+    expect_equal(b$percent, a$percent, tolerance = 1e-3)
+    expect_equal(abs(b$resmat), abs(a$resmat), tolerance = 1e-3)
+    expect_equal(t(shapes::PNSe2s(b$resmat, b$PNS)), Y, tolerance = 1e-8)
+  }
+})
+
+test_that("ll_scores_polysph is finite for isolated evaluation points", {
+  set.seed(4)
+  S <- cbind(c(rnorm(79, sd = 0.01), 10))
+  fit <- ll_scores_polysph(S, S, X, d = d, h = 0.2, loo = TRUE)
+  expect_true(all(is.finite(fit)))
+  expect_equal(rowSums(fit[, 1:3]^2), rep(1, 80), tolerance = 1e-8)
+})

@@ -17,7 +17,7 @@ Description: Dimension reduction for data on products of spheres
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.1)
-Imports: shapes, polykde, rotasym, stats, graphics, grDevices, utils
-Suggests: testthat (>= 3.0.0)
+Imports: shapes, rotasym, stats, graphics, grDevices, utils
+Suggests: polykde, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.1
